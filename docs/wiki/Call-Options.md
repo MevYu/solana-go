@@ -8,7 +8,7 @@ silently ignores most of them.
 
 ```go
 res, err := c.GetAccountInfo(ctx, pubkey, rpc.AccountInfoCfg{
-    Commitment: rpc.CommitmentConfirmed,
+    Commitment: solana.CommitmentConfirmed,
     Encoding:   solana.EncodingBase64,
     DataSlice:  &rpc.DataSlice{Offset: 0, Length: 64},
 })
@@ -53,9 +53,9 @@ The commitment level for the query. Tiers, in order of strength:
 
 | Constant | Returns |
 |---|---|
-| `rpc.CommitmentProcessed` | Most recent block — may be rolled back |
-| `rpc.CommitmentConfirmed` | Block confirmed by a cluster supermajority |
-| `rpc.CommitmentFinalized` | Block rooted by a cluster supermajority — never rolls back |
+| `solana.CommitmentProcessed` | Most recent block — may be rolled back |
+| `solana.CommitmentConfirmed` | Block confirmed by a cluster supermajority |
+| `solana.CommitmentFinalized` | Block rooted by a cluster supermajority — never rolls back |
 
 The zero value is the empty string; the server treats it as the
 endpoint's default (typically `Finalized`).
@@ -114,7 +114,7 @@ res, err := c.GetSignaturesForAddress(ctx, addr, rpc.SignaturesForAddressCfg{
 skip := true
 sig, err := c.SendTransaction(ctx, tx, rpc.SendTxCfg{
     SkipPreflight:       &skip,
-    PreflightCommitment: rpc.CommitmentConfirmed,
+    PreflightCommitment: solana.CommitmentConfirmed,
 })
 ```
 

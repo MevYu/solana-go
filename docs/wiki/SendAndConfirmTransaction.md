@@ -87,7 +87,7 @@ sig, err := c.SendAndConfirmTransaction(ctx,
         }
         return tx, nil
     },
-    rpc.WithSendCommitment(rpc.CommitmentConfirmed),
+    rpc.WithSendCommitment(solana.CommitmentConfirmed),
     rpc.WithConfirmTimeout(45*time.Second),
 )
 if err != nil {

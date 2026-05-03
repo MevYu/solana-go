@@ -147,7 +147,7 @@ sig, err := c.SendAndConfirmTransaction(ctx,
         }
         return tx, nil
     },
-    rpc.WithSendCommitment(rpc.CommitmentConfirmed),
+    rpc.WithSendCommitment(solana.CommitmentConfirmed),
 )
 ```
 

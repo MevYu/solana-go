@@ -36,7 +36,7 @@ Honoured options: `WithCommitment`, `WithEncoding`
 ```go
 tokenProgram, _ := solana.PublicKeyFromBase58("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 sub, err := ws.ProgramSubscribe(ctx, tokenProgram,
-    rpc.WithCommitment(rpc.CommitmentConfirmed),
+    rpc.WithCommitment(solana.CommitmentConfirmed),
 )
 ```
 
@@ -75,7 +75,7 @@ Honoured options: `WithCommitment`.
 sig, _ := c.SendTransaction(ctx, tx)
 
 sub, err := ws.SignatureSubscribe(ctx, sig,
-    rpc.WithCommitment(rpc.CommitmentConfirmed),
+    rpc.WithCommitment(solana.CommitmentConfirmed),
 )
 if err != nil {
     return err

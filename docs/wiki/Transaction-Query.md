@@ -117,7 +117,7 @@ for details.
 
 ```go
 res, err := c.GetTransaction(ctx, sig,
-    rpc.WithCommitment(rpc.CommitmentFinalized),
+    rpc.WithCommitment(solana.CommitmentFinalized),
 )
 if err != nil {
     return err
