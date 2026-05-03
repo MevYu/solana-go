@@ -19,8 +19,8 @@ type EpochInfo struct {
 
 // GetEpochInfo returns information about the current epoch.
 func (c *Client) GetEpochInfo(ctx context.Context, cfg ...CommitmentWithMinSlotCfg) (*EpochInfo, error) {
-	var result EpochInfo
-	if err := c.CallContext(ctx, &result, "getEpochInfo", FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[EpochInfo](ctx, c.Client, "getEpochInfo", FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -39,8 +39,8 @@ type SupplyResult struct {
 
 // GetSupply returns circulating and total SOL supply.
 func (c *Client) GetSupply(ctx context.Context, cfg ...CommitmentCfg) (*SupplyResult, error) {
-	var resp jsonrpc.ContextValue[SupplyResult]
-	if err := c.CallContext(ctx, &resp, "getSupply", FirstOrZero(cfg)); err != nil {
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[SupplyResult]](ctx, c.Client, "getSupply", FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	resp.Value.Slot = resp.Context.Slot
@@ -57,8 +57,8 @@ type InflationRate struct {
 
 // GetInflationRate returns the current inflation rate.
 func (c *Client) GetInflationRate(ctx context.Context) (*InflationRate, error) {
-	var result InflationRate
-	if err := c.CallContext(ctx, &result, "getInflationRate"); err != nil {
+	result, err := jsonrpc.CallContext[InflationRate](ctx, c.Client, "getInflationRate")
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -66,8 +66,8 @@ func (c *Client) GetInflationRate(ctx context.Context) (*InflationRate, error) {
 
 // GetMinimumBalanceForRentExemption returns the minimum lamports needed to make an account rent-exempt.
 func (c *Client) GetMinimumBalanceForRentExemption(ctx context.Context, dataSize uint64, cfg ...CommitmentCfg) (uint64, error) {
-	var lamports uint64
-	if err := c.CallContext(ctx, &lamports, "getMinimumBalanceForRentExemption", dataSize, FirstOrZero(cfg)); err != nil {
+	lamports, err := jsonrpc.CallContext[uint64](ctx, c.Client, "getMinimumBalanceForRentExemption", dataSize, FirstOrZero(cfg))
+	if err != nil {
 		return 0, err
 	}
 	return lamports, nil
@@ -75,8 +75,8 @@ func (c *Client) GetMinimumBalanceForRentExemption(ctx context.Context, dataSize
 
 // GetSlotLeader returns the public key of the current slot leader.
 func (c *Client) GetSlotLeader(ctx context.Context, cfg ...CommitmentWithMinSlotCfg) (solana.PublicKey, error) {
-	var leader string
-	if err := c.CallContext(ctx, &leader, "getSlotLeader", FirstOrZero(cfg)); err != nil {
+	leader, err := jsonrpc.CallContext[string](ctx, c.Client, "getSlotLeader", FirstOrZero(cfg))
+	if err != nil {
 		return solana.PublicKey{}, err
 	}
 	return solana.PublicKeyFromBase58(leader)
@@ -84,8 +84,8 @@ func (c *Client) GetSlotLeader(ctx context.Context, cfg ...CommitmentWithMinSlot
 
 // GetBlockTime returns the UNIX timestamp at which the given slot was produced.
 func (c *Client) GetBlockTime(ctx context.Context, slot uint64) (*int64, error) {
-	var ts *int64
-	if err := c.CallContext(ctx, &ts, "getBlockTime", slot); err != nil {
+	ts, err := jsonrpc.CallContext[*int64](ctx, c.Client, "getBlockTime", slot)
+	if err != nil {
 		return nil, err
 	}
 	return ts, nil
@@ -102,8 +102,8 @@ type EpochSchedule struct {
 
 // GetEpochSchedule returns the epoch schedule configuration from the cluster's genesis config.
 func (c *Client) GetEpochSchedule(ctx context.Context) (*EpochSchedule, error) {
-	var result EpochSchedule
-	if err := c.CallContext(ctx, &result, "getEpochSchedule"); err != nil {
+	result, err := jsonrpc.CallContext[EpochSchedule](ctx, c.Client, "getEpochSchedule")
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -111,8 +111,8 @@ func (c *Client) GetEpochSchedule(ctx context.Context) (*EpochSchedule, error) {
 
 // GetSlotLeaders returns the slot leaders for a range of slots.
 func (c *Client) GetSlotLeaders(ctx context.Context, startSlot uint64, limit uint64) ([]solana.PublicKey, error) {
-	var raw []string
-	if err := c.CallContext(ctx, &raw, "getSlotLeaders", startSlot, limit); err != nil {
+	raw, err := jsonrpc.CallContext[[]string](ctx, c.Client, "getSlotLeaders", startSlot, limit)
+	if err != nil {
 		return nil, err
 	}
 	leaders := make([]solana.PublicKey, len(raw))
@@ -129,8 +129,8 @@ func (c *Client) GetSlotLeaders(ctx context.Context, startSlot uint64, limit uin
 // GetLeaderSchedule returns the leader schedule for an epoch. Pass nil
 // for slot to query the current epoch.
 func (c *Client) GetLeaderSchedule(ctx context.Context, slot *uint64, cfg ...LeaderScheduleCfg) (map[string][]uint64, error) {
-	var result map[string][]uint64
-	if err := c.CallContext(ctx, &result, "getLeaderSchedule", slot, FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[map[string][]uint64](ctx, c.Client, "getLeaderSchedule", slot, FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -147,8 +147,8 @@ type InflationGovernor struct {
 
 // GetInflationGovernor returns the current inflation governor configuration.
 func (c *Client) GetInflationGovernor(ctx context.Context, cfg ...CommitmentCfg) (*InflationGovernor, error) {
-	var result InflationGovernor
-	if err := c.CallContext(ctx, &result, "getInflationGovernor", FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[InflationGovernor](ctx, c.Client, "getInflationGovernor", FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -170,8 +170,8 @@ func (c *Client) GetInflationReward(ctx context.Context, addresses []solana.Publ
 	for i, a := range addresses {
 		addrs[i] = a.String()
 	}
-	var result []*InflationReward
-	if err := c.CallContext(ctx, &result, "getInflationReward", addrs, FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[[]*InflationReward](ctx, c.Client, "getInflationReward", addrs, FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -188,8 +188,8 @@ type PerformanceSample struct {
 
 // GetRecentPerformanceSamples returns a list of recent performance samples.
 func (c *Client) GetRecentPerformanceSamples(ctx context.Context, limit *uint64) ([]PerformanceSample, error) {
-	var result []PerformanceSample
-	if err := c.CallContext(ctx, &result, "getRecentPerformanceSamples", limit); err != nil {
+	result, err := jsonrpc.CallContext[[]PerformanceSample](ctx, c.Client, "getRecentPerformanceSamples", limit)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

@@ -16,8 +16,8 @@ type ProgramAccount struct {
 // GetProgramAccounts returns all accounts owned by the given program.
 // Encoding defaults to base64.
 func (c *Client) GetProgramAccounts(ctx context.Context, program solana.PublicKey, cfg ...AccountInfoCfg) ([]ProgramAccount, error) {
-	var result []ProgramAccount
-	if err := c.CallContext(ctx, &result, "getProgramAccounts", program.String(), FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[[]ProgramAccount](ctx, c.Client, "getProgramAccounts", program.String(), FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -55,8 +55,8 @@ func (c *Client) tokenAccountsCall(ctx context.Context, method string, addr sola
 	} else {
 		f = map[string]string{"programId": filter.ProgramID.String()}
 	}
-	var resp jsonrpc.ContextValue[[]TokenAccount]
-	if err := c.CallContext(ctx, &resp, method, addr.String(), f, FirstOrZero(cfg)); err != nil {
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[[]TokenAccount]](ctx, c.Client, method, addr.String(), f, FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return resp.Value, nil
@@ -73,8 +73,8 @@ type TokenLargestAccount struct {
 
 // GetTokenLargestAccounts returns the 20 largest accounts for a given SPL Token mint.
 func (c *Client) GetTokenLargestAccounts(ctx context.Context, mint solana.PublicKey, cfg ...CommitmentCfg) ([]TokenLargestAccount, error) {
-	var resp jsonrpc.ContextValue[[]TokenLargestAccount]
-	if err := c.CallContext(ctx, &resp, "getTokenLargestAccounts", mint.String(), FirstOrZero(cfg)); err != nil {
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[[]TokenLargestAccount]](ctx, c.Client, "getTokenLargestAccounts", mint.String(), FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return resp.Value, nil
@@ -89,8 +89,8 @@ type LargestAccount struct {
 // GetLargestAccounts returns the 20 largest accounts by lamport balance.
 // cfg.Filter selects "circulating" or "nonCirculating".
 func (c *Client) GetLargestAccounts(ctx context.Context, cfg ...LargestAccountsCfg) ([]LargestAccount, error) {
-	var resp jsonrpc.ContextValue[[]LargestAccount]
-	if err := c.CallContext(ctx, &resp, "getLargestAccounts", FirstOrZero(cfg)); err != nil {
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[[]LargestAccount]](ctx, c.Client, "getLargestAccounts", FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return resp.Value, nil
