@@ -77,11 +77,11 @@ func (c *Client) GetTransactionCount(ctx context.Context, cfg ...CommitmentWithM
 
 // IsBlockhashValid returns whether a blockhash is still valid.
 func (c *Client) IsBlockhashValid(ctx context.Context, blockhash solana.Hash, cfg ...CommitmentWithMinSlotCfg) (bool, error) {
-	_, valid, err := jsonrpc.CallContextValue[bool](ctx, c.Client, "isBlockhashValid", blockhash.String(), FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[bool]
+	if err := c.CallContext(ctx, &resp, "isBlockhashValid", blockhash.String(), FirstOrZero(cfg)); err != nil {
 		return false, err
 	}
-	return valid, nil
+	return resp.Value, nil
 }
 
 // MinimumLedgerSlot returns the lowest slot that the node has information about.

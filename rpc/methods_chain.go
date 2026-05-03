@@ -39,12 +39,12 @@ type SupplyResult struct {
 
 // GetSupply returns circulating and total SOL supply.
 func (c *Client) GetSupply(ctx context.Context, cfg ...CommitmentCfg) (*SupplyResult, error) {
-	slot, v, err := jsonrpc.CallContextValue[SupplyResult](ctx, c.Client, "getSupply", FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[SupplyResult]
+	if err := c.CallContext(ctx, &resp, "getSupply", FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	v.Slot = slot
-	return &v, nil
+	resp.Value.Slot = resp.Context.Slot
+	return &resp.Value, nil
 }
 
 // InflationRate is the decoded response of GetInflationRate.

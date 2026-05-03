@@ -334,7 +334,7 @@ func (c *Client) sendRaw(ctx context.Context, label string, build func() ([]byte
 }
 
 // callRaw is the single-request convenience on top of sendRaw used by
-// CallContext and CallContextValue.
+// CallContext.
 func (c *Client) callRaw(ctx context.Context, method string, args []any) ([]byte, error) {
 	if args == nil {
 		args = []any{}
@@ -350,7 +350,8 @@ func (c *Client) callRaw(ctx context.Context, method string, args []any) ([]byte
 	})
 }
 
-// CallContext issues a JSON-RPC 2.0 request to the server.
+// CallContext issues a JSON-RPC 2.0 request to the server and decodes
+// the response into result in a single Unmarshal pass.
 //
 // method is the RPC method name (for example "getBalance"). args is
 // the list of positional parameters passed variadically; omit
@@ -358,6 +359,10 @@ func (c *Client) callRaw(ctx context.Context, method string, args []any) ([]byte
 // send an empty array, which is the shape Solana expects. result is
 // a pointer into which the decoded result is written; pass nil to
 // discard the result.
+//
+// For methods that return Solana's {context:{slot}, value} envelope,
+// pass *ContextValue[T] as result; the slot is then available via
+// result.Context.Slot after the call returns.
 //
 // CallContext uses the configured RetryPolicy to transparently retry
 // transient failures. The caller's context controls deadlines and
@@ -367,28 +372,33 @@ func (c *Client) callRaw(ctx context.Context, method string, args []any) ([]byte
 // When the server returns a JSON-RPC error object, CallContext
 // returns an *ErrRPC that wraps the code, message, data and raw
 // body. Use errors.As to recover it.
+//
+// Single-pass decoding: the envelope's Result field is typed as `any`
+// but pre-populated with the caller's typed pointer. encoding/json
+// (and goccy/go-json, which mirrors its semantics) follows that
+// pointer and decodes the JSON `result` directly into the caller's
+// type, so the entire response is parsed in one Unmarshal call.
 func (c *Client) CallContext(ctx context.Context, result any, method string, args ...any) error {
 	body, err := c.callRaw(ctx, method, args)
 	if err != nil {
 		return err
 	}
 
-	var resp Response
-	if err := c.codec.Unmarshal(body, &resp); err != nil {
+	envelope := struct {
+		Result any    `json:"result"`
+		Error  *Error `json:"error"`
+	}{Result: result}
+
+	if err := c.codec.Unmarshal(body, &envelope); err != nil {
 		return fmt.Errorf("solana rpc %s: decode response: %w", method, err)
 	}
-	if resp.Error != nil {
+	if envelope.Error != nil {
 		return &ErrRPC{
 			Method: method,
-			Code:   resp.Error.Code,
-			Msg:    resp.Error.Message,
-			Data:   resp.Error.Data,
+			Code:   envelope.Error.Code,
+			Msg:    envelope.Error.Message,
+			Data:   envelope.Error.Data,
 			Body:   body,
-		}
-	}
-	if result != nil && len(resp.Result) > 0 {
-		if err := c.codec.Unmarshal(resp.Result, result); err != nil {
-			return fmt.Errorf("solana rpc %s: decode result: %w", method, err)
 		}
 	}
 	return nil

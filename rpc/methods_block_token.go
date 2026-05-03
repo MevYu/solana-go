@@ -60,11 +60,11 @@ type GetTokenAccountBalanceResult struct {
 
 // GetTokenAccountBalance returns the balance of an SPL Token account.
 func (c *Client) GetTokenAccountBalance(ctx context.Context, account solana.PublicKey, cfg ...CommitmentCfg) (*GetTokenAccountBalanceResult, error) {
-	slot, v, err := jsonrpc.CallContextValue[TokenAmount](ctx, c.Client, "getTokenAccountBalance", account.String(), FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[TokenAmount]
+	if err := c.CallContext(ctx, &resp, "getTokenAccountBalance", account.String(), FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return &GetTokenAccountBalanceResult{Slot: slot, Value: v}, nil
+	return &GetTokenAccountBalanceResult{Slot: resp.Context.Slot, Value: resp.Value}, nil
 }
 
 // GetTokenSupplyResult is the decoded response of GetTokenSupply.
@@ -75,11 +75,11 @@ type GetTokenSupplyResult struct {
 
 // GetTokenSupply returns the total supply of an SPL Token mint.
 func (c *Client) GetTokenSupply(ctx context.Context, mint solana.PublicKey, cfg ...CommitmentCfg) (*GetTokenSupplyResult, error) {
-	slot, v, err := jsonrpc.CallContextValue[TokenAmount](ctx, c.Client, "getTokenSupply", mint.String(), FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[TokenAmount]
+	if err := c.CallContext(ctx, &resp, "getTokenSupply", mint.String(), FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return &GetTokenSupplyResult{Slot: slot, Value: v}, nil
+	return &GetTokenSupplyResult{Slot: resp.Context.Slot, Value: resp.Value}, nil
 }
 
 // BlockCommitment is the decoded response of GetBlockCommitment.

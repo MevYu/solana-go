@@ -24,11 +24,11 @@ func (c *Client) GetSignatureStatuses(ctx context.Context, sigs []solana.Signatu
 	for i, s := range sigs {
 		sigStrs[i] = s.String()
 	}
-	slot, statuses, err := jsonrpc.CallContextValue[[]*SignatureStatus](ctx, c.Client, "getSignatureStatuses", sigStrs, FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[[]*SignatureStatus]
+	if err := c.CallContext(ctx, &resp, "getSignatureStatuses", sigStrs, FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return &GetSignatureStatusesResult{Slot: slot, Statuses: statuses}, nil
+	return &GetSignatureStatusesResult{Slot: resp.Context.Slot, Statuses: resp.Value}, nil
 }
 
 // ConfirmedSignatureForAddress is a single entry in the result of GetSignaturesForAddress.
