@@ -1,0 +1,99 @@
+name: sync-wiki
+
+# Mirror docs/wiki/*.md into the GitHub Wiki repository.
+#
+# Why this exists:
+#
+#   GitHub Wikis are a separate git repository (<repo>.wiki.git) and
+#   the REST/MCP APIs cannot write to them directly. We keep the
+#   source of truth under docs/wiki/ in the main repo so pages go
+#   through normal commit / PR review, then let this workflow push
+#   the committed content to the wiki repo on every main-branch
+#   update.
+#
+# Trigger:
+#
+#   - Push to main that touches docs/wiki/**
+#   - Manual run via the Actions tab (workflow_dispatch)
+#
+# Permissions:
+#
+#   contents: write is needed to push to <repo>.wiki.git. The wiki
+#   repo lives under the same owner + name as the source repo with a
+#   ".wiki" suffix, and inherits the same token permissions.
+#
+# Prerequisite:
+#
+#   The GitHub Wiki must be enabled for the repository (Settings ->
+#   General -> Features -> Wikis). If Wikis is off, this workflow
+#   fails on the first push with a clear "repository not found"
+#   error from git.
+#
+# Page naming:
+#
+#   GitHub Wiki has no subdirectories: every page is a top-level
+#   .md file. The workflow copies docs/wiki/*.md to the wiki repo
+#   root preserving exact filenames. Dashes in filenames render as
+#   spaces in the wiki UI (e.g. "Getting-Started.md" -> page
+#   "Getting Started").
+#
+#   Special pages: Home.md, _Sidebar.md, _Footer.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/wiki/**'
+      - '.github/workflows/sync-wiki.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-wiki
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Clone wiki repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" \
+            wiki
+
+      - name: Mirror docs/wiki into wiki repo
+        run: |
+          set -euo pipefail
+          cd wiki
+          # Drop every top-level .md so stale pages get deleted.
+          find . -maxdepth 1 -type f -name '*.md' -delete
+          cp -v ../source/docs/wiki/*.md .
+
+      - name: Commit and push
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          cd wiki
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "wiki already up to date"
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "sync wiki from docs/wiki @ ${GITHUB_SHA::7}"
+          git push origin HEAD:master

@@ -1,0 +1,17 @@
+{
+  "context": {
+    "apiVersion": "2.0.15",
+    "slot": 284518234
+  },
+  "value": {
+    "data": [
+      "AQAAAAYAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "base64"
+    ],
+    "executable": false,
+    "lamports": 2039280,
+    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "rentEpoch": 361,
+    "space": 165
+  }
+}
