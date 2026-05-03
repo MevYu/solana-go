@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	solana "github.com/MevYu/solana-go"
+	"github.com/MevYu/solana-go/jsonrpc"
 
 	"github.com/mr-tron/base58"
 )
@@ -33,8 +34,8 @@ func (c *Client) GetTransaction(ctx context.Context, sig solana.Signature, cfg .
 		c0.MaxSupportedTransactionVersion = &zero
 	}
 
-	var res *GetTransactionResult
-	if err := c.CallContext(ctx, &res, "getTransaction", sig.String(), c0); err != nil {
+	res, err := jsonrpc.CallContext[*GetTransactionResult](ctx, c.Client, "getTransaction", sig.String(), c0)
+	if err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -68,8 +69,8 @@ func (c *Client) SendRawTransaction(ctx context.Context, raw []byte, cfg ...Send
 		return solana.Signature{}, fmt.Errorf("solana: SendRawTransaction: unsupported encoding %q", c0.Encoding)
 	}
 
-	var sigStr string
-	if err := c.CallContext(ctx, &sigStr, "sendTransaction", encoded, c0); err != nil {
+	sigStr, err := jsonrpc.CallContext[string](ctx, c.Client, "sendTransaction", encoded, c0)
+	if err != nil {
 		return solana.Signature{}, err
 	}
 	return solana.SignatureFromBase58(sigStr)

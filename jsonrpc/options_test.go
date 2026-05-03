@@ -21,7 +21,7 @@ func TestWithHeader_SentOnRequest(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClientWith(srv.URL, WithHeader("X-API-Key", "secret"))
-	_ = c.CallContext(context.Background(), nil, "getSlot")
+	_, _ = CallContext[any](context.Background(), c, "getSlot")
 	if gotHeader != "secret" {
 		t.Errorf("X-API-Key = %q, want %q", gotHeader, "secret")
 	}
@@ -39,7 +39,7 @@ func TestWithHeaders_AllSentOnRequest(t *testing.T) {
 
 	h := http.Header{"X-Foo": {"foo"}, "X-Bar": {"bar"}}
 	c := NewClientWith(srv.URL, WithHeaders(h))
-	_ = c.CallContext(context.Background(), nil, "getSlot")
+	_, _ = CallContext[any](context.Background(), c, "getSlot")
 	if got.Get("X-Foo") != "foo" {
 		t.Errorf("X-Foo = %q", got.Get("X-Foo"))
 	}
@@ -59,7 +59,7 @@ func TestSetHeader_UpdatesAfterConstruction(t *testing.T) {
 
 	c := NewClient(srv.URL, Config{})
 	c.SetHeader("X-Key", "updated")
-	_ = c.CallContext(context.Background(), nil, "getSlot")
+	_, _ = CallContext[any](context.Background(), c, "getSlot")
 	if gotKey != "updated" {
 		t.Errorf("X-Key = %q, want %q", gotKey, "updated")
 	}
@@ -78,7 +78,7 @@ func TestWithHTTPClient_UsedForRequests(t *testing.T) {
 
 	custom := &http.Client{}
 	c := NewClientWith(srv.URL, WithHTTPClient(custom))
-	_ = c.CallContext(context.Background(), nil, "getSlot")
+	_, _ = CallContext[any](context.Background(), c, "getSlot")
 	if !called {
 		t.Error("custom HTTP client was not used")
 	}
@@ -107,7 +107,7 @@ func TestWithHTTPAuth_InjectsHeader(t *testing.T) {
 		h.Set("Authorization", "Bearer token123")
 		return nil
 	}))
-	_ = c.CallContext(context.Background(), nil, "getSlot")
+	_, _ = CallContext[any](context.Background(), c, "getSlot")
 	if gotAuth != "Bearer token123" {
 		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer token123")
 	}
@@ -144,7 +144,7 @@ func TestNewContextWithHeaders_AddedToRequest(t *testing.T) {
 
 	c := NewClient(srv.URL, Config{})
 	ctx := NewContextWithHeaders(context.Background(), http.Header{"X-Trace-Id": {"abc-123"}})
-	_ = c.CallContext(ctx, nil, "getSlot")
+	_, _ = CallContext[any](ctx, c, "getSlot")
 	if gotTrace != "abc-123" {
 		t.Errorf("X-Trace-Id = %q, want %q", gotTrace, "abc-123")
 	}
@@ -220,8 +220,8 @@ func TestWithHTTPClient_NilBody(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, Config{})
-	var n int
-	if err := c.CallContext(context.Background(), &n, "getSlot"); err != nil {
+	n, err := CallContext[int](context.Background(), c, "getSlot")
+	if err != nil {
 		t.Fatalf("Call: %v", err)
 	}
 	if n != 42 {

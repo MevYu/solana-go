@@ -24,8 +24,8 @@ func (c *Client) GetSignatureStatuses(ctx context.Context, sigs []solana.Signatu
 	for i, s := range sigs {
 		sigStrs[i] = s.String()
 	}
-	var resp jsonrpc.ContextValue[[]*SignatureStatus]
-	if err := c.CallContext(ctx, &resp, "getSignatureStatuses", sigStrs, FirstOrZero(cfg)); err != nil {
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[[]*SignatureStatus]](ctx, c.Client, "getSignatureStatuses", sigStrs, FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return &GetSignatureStatusesResult{Slot: resp.Context.Slot, Statuses: resp.Value}, nil
@@ -43,8 +43,8 @@ type ConfirmedSignatureForAddress struct {
 
 // GetSignaturesForAddress fetches the transaction signatures that touched the given address.
 func (c *Client) GetSignaturesForAddress(ctx context.Context, addr solana.PublicKey, cfg ...SignaturesForAddressCfg) ([]*ConfirmedSignatureForAddress, error) {
-	var result []*ConfirmedSignatureForAddress
-	if err := c.CallContext(ctx, &result, "getSignaturesForAddress", addr.String(), FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[[]*ConfirmedSignatureForAddress](ctx, c.Client, "getSignaturesForAddress", addr.String(), FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

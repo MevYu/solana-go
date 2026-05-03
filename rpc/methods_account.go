@@ -17,8 +17,8 @@ type GetAccountInfoResult struct {
 // GetAccountInfo fetches the current state of the account at the given address.
 // Encoding defaults to base64 when cfg.Encoding is empty.
 func (c *Client) GetAccountInfo(ctx context.Context, pubkey solana.PublicKey, cfg ...AccountInfoCfg) (*GetAccountInfoResult, error) {
-	var resp jsonrpc.ContextValue[*solana.AccountInfo]
-	if err := c.CallContext(ctx, &resp, "getAccountInfo", pubkey.String(), FirstOrZero(cfg)); err != nil {
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[*solana.AccountInfo]](ctx, c.Client, "getAccountInfo", pubkey.String(), FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return &GetAccountInfoResult{Slot: resp.Context.Slot, Account: resp.Value}, nil
@@ -46,8 +46,8 @@ func (c *Client) GetMultipleAccounts(ctx context.Context, addresses []solana.Pub
 	for i, a := range addresses {
 		keys[i] = a.String()
 	}
-	var resp jsonrpc.ContextValue[[]*solana.AccountInfo]
-	if err := c.CallContext(ctx, &resp, "getMultipleAccounts", keys, FirstOrZero(cfg)); err != nil {
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[[]*solana.AccountInfo]](ctx, c.Client, "getMultipleAccounts", keys, FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return &GetMultipleAccountsResult{Slot: resp.Context.Slot, Accounts: resp.Value}, nil
