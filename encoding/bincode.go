@@ -169,26 +169,17 @@ func DecodeTo(data []byte, v any) error {
 	return NewDecoder(data).DecodeTo(v)
 }
 
-var decoderPool = sync.Pool{New: func() any { return &Decoder{} }}
-
-// AcquireDecoder returns a pooled Decoder reset to read from b. The
-// caller must call ReleaseDecoder when done — do not use the Decoder
-// after that call.
+// BorshDecodeTo is the Borsh-flavoured one-shot reflection decoder:
+// equivalent to NewDecoder(data).UseBorsh().DecodeTo(v). It flips the
+// default Vec/string length prefix from bincode's u64 to Borsh's u32.
+// Use this for Anchor-generated account state and other Borsh-encoded
+// structs.
 //
-// Note: ReadBytes returns zero-copy slices into b. Those slices remain
-// valid after ReleaseDecoder because the pool only reuses the Decoder
-// struct, not the underlying data buffer.
-func AcquireDecoder(b []byte) *Decoder {
-	d := decoderPool.Get().(*Decoder)
-	d.buf = b
-	d.pos = 0
-	return d
-}
-
-// ReleaseDecoder returns d to the pool. The caller must not use d after this.
-func ReleaseDecoder(d *Decoder) {
-	d.buf = nil
-	decoderPool.Put(d)
+// Anchor's 8-byte account discriminator must be stripped (or modeled as
+// the first [8]byte field) before calling. Borsh enums are 1-byte —
+// model them as a Go uint8 with one explicit case per variant.
+func BorshDecodeTo(data []byte, v any) error {
+	return NewDecoder(data).UseBorsh().DecodeTo(v)
 }
 
 // Pos returns the number of bytes consumed so far.

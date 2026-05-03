@@ -278,8 +278,7 @@ func UnmarshalMessage(data []byte) (*Message, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("solana: message: empty input")
 	}
-	d := encoding.AcquireDecoder(data)
-	defer encoding.ReleaseDecoder(d)
+	d := encoding.NewDecoder(data)
 	m, err := DecodeMessage(d)
 	if err != nil {
 		return nil, err

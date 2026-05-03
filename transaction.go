@@ -178,8 +178,7 @@ func UnmarshalTransaction(data []byte) (*Transaction, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("solana: transaction: empty input")
 	}
-	d := encoding.AcquireDecoder(data)
-	defer encoding.ReleaseDecoder(d)
+	d := encoding.NewDecoder(data)
 	tx, err := DecodeTransaction(d)
 	if err != nil {
 		return nil, err
