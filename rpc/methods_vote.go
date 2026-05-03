@@ -74,11 +74,11 @@ type BlockProductionResult struct {
 
 // GetBlockProduction returns recent block production information.
 func (c *Client) GetBlockProduction(ctx context.Context, cfg ...CommitmentCfg) (*BlockProductionResult, error) {
-	slot, v, err := jsonrpc.CallContextValue[BlockProductionValue](ctx, c.Client, "getBlockProduction", FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[BlockProductionValue]
+	if err := c.CallContext(ctx, &resp, "getBlockProduction", FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return &BlockProductionResult{Slot: slot, Value: v}, nil
+	return &BlockProductionResult{Slot: resp.Context.Slot, Value: resp.Value}, nil
 }
 
 // StakeActivation is the decoded response of GetStakeActivation.
@@ -99,9 +99,9 @@ func (c *Client) GetStakeActivation(ctx context.Context, account solana.PublicKe
 
 // GetStakeMinimumDelegation returns the stake minimum delegation in lamports.
 func (c *Client) GetStakeMinimumDelegation(ctx context.Context, cfg ...CommitmentCfg) (uint64, error) {
-	_, v, err := jsonrpc.CallContextValue[uint64](ctx, c.Client, "getStakeMinimumDelegation", FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[uint64]
+	if err := c.CallContext(ctx, &resp, "getStakeMinimumDelegation", FirstOrZero(cfg)); err != nil {
 		return 0, err
 	}
-	return v, nil
+	return resp.Value, nil
 }

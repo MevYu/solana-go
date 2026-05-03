@@ -239,9 +239,11 @@ func TestClient_Call_CustomCodec(t *testing.T) {
 	if codec.marshalCalls.Load() != 1 {
 		t.Errorf("marshal calls = %d, want 1", codec.marshalCalls.Load())
 	}
-	// Two unmarshals: one for the Response envelope, one for the result.
-	if codec.unmarshalCalls.Load() != 2 {
-		t.Errorf("unmarshal calls = %d, want 2", codec.unmarshalCalls.Load())
+	// Single Unmarshal: the envelope's Result field is pre-populated with
+	// the caller's typed pointer, so the codec decodes the whole response
+	// (envelope + typed result) in one pass.
+	if codec.unmarshalCalls.Load() != 1 {
+		t.Errorf("unmarshal calls = %d, want 1", codec.unmarshalCalls.Load())
 	}
 	if result != 42 {
 		t.Errorf("result = %d", result)

@@ -55,11 +55,11 @@ func (c *Client) tokenAccountsCall(ctx context.Context, method string, addr sola
 	} else {
 		f = map[string]string{"programId": filter.ProgramID.String()}
 	}
-	_, accounts, err := jsonrpc.CallContextValue[[]TokenAccount](ctx, c.Client, method, addr.String(), f, FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[[]TokenAccount]
+	if err := c.CallContext(ctx, &resp, method, addr.String(), f, FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return accounts, nil
+	return resp.Value, nil
 }
 
 // TokenLargestAccount is a single entry in the GetTokenLargestAccounts response.
@@ -73,11 +73,11 @@ type TokenLargestAccount struct {
 
 // GetTokenLargestAccounts returns the 20 largest accounts for a given SPL Token mint.
 func (c *Client) GetTokenLargestAccounts(ctx context.Context, mint solana.PublicKey, cfg ...CommitmentCfg) ([]TokenLargestAccount, error) {
-	_, accounts, err := jsonrpc.CallContextValue[[]TokenLargestAccount](ctx, c.Client, "getTokenLargestAccounts", mint.String(), FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[[]TokenLargestAccount]
+	if err := c.CallContext(ctx, &resp, "getTokenLargestAccounts", mint.String(), FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return accounts, nil
+	return resp.Value, nil
 }
 
 // LargestAccount is a single entry in the GetLargestAccounts response.
@@ -89,9 +89,9 @@ type LargestAccount struct {
 // GetLargestAccounts returns the 20 largest accounts by lamport balance.
 // cfg.Filter selects "circulating" or "nonCirculating".
 func (c *Client) GetLargestAccounts(ctx context.Context, cfg ...LargestAccountsCfg) ([]LargestAccount, error) {
-	_, accounts, err := jsonrpc.CallContextValue[[]LargestAccount](ctx, c.Client, "getLargestAccounts", FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[[]LargestAccount]
+	if err := c.CallContext(ctx, &resp, "getLargestAccounts", FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return accounts, nil
+	return resp.Value, nil
 }

@@ -35,11 +35,11 @@ func (c *Client) GetFeeForMessage(ctx context.Context, msg *solana.Message, cfg 
 		return nil, fmt.Errorf("solana: GetFeeForMessage: marshal: %w", err)
 	}
 	encoded := base64.StdEncoding.EncodeToString(msgBytes)
-	slot, fee, err := jsonrpc.CallContextValue[*uint64](ctx, c.Client, "getFeeForMessage", encoded, FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[*uint64]
+	if err := c.CallContext(ctx, &resp, "getFeeForMessage", encoded, FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return &GetFeeForMessageResult{Slot: slot, Fee: fee}, nil
+	return &GetFeeForMessageResult{Slot: resp.Context.Slot, Fee: resp.Value}, nil
 }
 
 // MaxGetRecentPrioritizationFeesAddresses is the per-request limit

@@ -15,11 +15,11 @@ type GetBalanceResult struct {
 
 // GetBalance returns the balance of the account at the given address, in lamports.
 func (c *Client) GetBalance(ctx context.Context, pubkey solana.PublicKey, cfg ...CommitmentWithMinSlotCfg) (*GetBalanceResult, error) {
-	slot, lamports, err := jsonrpc.CallContextValue[uint64](ctx, c.Client, "getBalance", pubkey.String(), FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[uint64]
+	if err := c.CallContext(ctx, &resp, "getBalance", pubkey.String(), FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	return &GetBalanceResult{Slot: slot, Value: lamports}, nil
+	return &GetBalanceResult{Slot: resp.Context.Slot, Value: resp.Value}, nil
 }
 
 // GetSlot returns the current slot the node is processing.
@@ -42,10 +42,10 @@ func (c *Client) GetBlockHeight(ctx context.Context, cfg ...CommitmentWithMinSlo
 
 // GetLatestBlockhash returns the latest blockhash and its last valid block height.
 func (c *Client) GetLatestBlockhash(ctx context.Context, cfg ...CommitmentWithMinSlotCfg) (*LatestBlockhash, error) {
-	slot, v, err := jsonrpc.CallContextValue[LatestBlockhash](ctx, c.Client, "getLatestBlockhash", FirstOrZero(cfg))
-	if err != nil {
+	var resp jsonrpc.ContextValue[LatestBlockhash]
+	if err := c.CallContext(ctx, &resp, "getLatestBlockhash", FirstOrZero(cfg)); err != nil {
 		return nil, err
 	}
-	v.Slot = slot
-	return &v, nil
+	resp.Value.Slot = resp.Context.Slot
+	return &resp.Value, nil
 }
