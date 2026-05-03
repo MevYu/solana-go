@@ -40,8 +40,7 @@ type Entry struct {
 // The returned slice does not alias data: transaction signatures and
 // message fields are copied out of the buffer.
 func DecodeEntries(data []byte) ([]Entry, error) {
-	d := encoding.AcquireDecoder(data)
-	defer encoding.ReleaseDecoder(d)
+	d := encoding.NewDecoder(data)
 	entryCount, err := d.ReadUint64()
 	if err != nil {
 		return nil, fmt.Errorf("solana: entries: count: %w", err)

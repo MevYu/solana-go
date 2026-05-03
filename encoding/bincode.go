@@ -192,28 +192,6 @@ func BorshDecodeTo(data []byte, v any) error {
 	return NewDecoder(data).UseBorsh().DecodeTo(v)
 }
 
-var decoderPool = sync.Pool{New: func() any { return &Decoder{} }}
-
-// AcquireDecoder returns a pooled Decoder reset to read from b. The
-// caller must call ReleaseDecoder when done — do not use the Decoder
-// after that call.
-//
-// Note: ReadBytes returns zero-copy slices into b. Those slices remain
-// valid after ReleaseDecoder because the pool only reuses the Decoder
-// struct, not the underlying data buffer.
-func AcquireDecoder(b []byte) *Decoder {
-	d := decoderPool.Get().(*Decoder)
-	d.buf = b
-	d.pos = 0
-	return d
-}
-
-// ReleaseDecoder returns d to the pool. The caller must not use d after this.
-func ReleaseDecoder(d *Decoder) {
-	d.buf = nil
-	decoderPool.Put(d)
-}
-
 // Pos returns the number of bytes consumed so far.
 func (d *Decoder) Pos() int { return d.pos }
 
