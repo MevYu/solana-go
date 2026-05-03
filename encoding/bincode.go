@@ -5,10 +5,7 @@
 // (shortvec) length-prefix format.
 package encoding
 
-import (
-	"errors"
-	"sync"
-)
+import "errors"
 
 // ErrShortBuffer is returned when a Decoder runs out of bytes mid-value
 // or when a caller asks for a negative read length.
@@ -46,28 +43,6 @@ func NewEncoder(capacity int) *Encoder {
 // when N is much larger than 128 (e.g. a variable-length address list).
 func New() *Encoder {
 	return &Encoder{buf: make([]byte, 0, 128)}
-}
-
-var encoderPool = sync.Pool{New: func() any { return &Encoder{} }}
-
-// AcquireEncoder returns a pooled Encoder reset to zero length.
-// initialCap is a capacity hint; the pooled buffer may already be larger.
-// The caller must call ReleaseEncoder when done — do not use the Encoder
-// after calling ReleaseEncoder.
-func AcquireEncoder(initialCap int) *Encoder {
-	e := encoderPool.Get().(*Encoder)
-	if cap(e.buf) < initialCap {
-		e.buf = make([]byte, 0, initialCap)
-	} else {
-		e.buf = e.buf[:0]
-	}
-	return e
-}
-
-// ReleaseEncoder returns e to the pool. The caller must not use e after this.
-func ReleaseEncoder(e *Encoder) {
-	e.buf = e.buf[:0]
-	encoderPool.Put(e)
 }
 
 // Wrap returns an Encoder whose buffer is the slice b truncated to
@@ -167,19 +142,6 @@ func NewDecoder(b []byte) *Decoder {
 // fixed-shape, performance-sensitive decoders prefer the Reader API.
 func DecodeTo(data []byte, v any) error {
 	return NewDecoder(data).DecodeTo(v)
-}
-
-// BorshDecodeTo is the Borsh-flavoured one-shot reflection decoder:
-// equivalent to NewDecoder(data).UseBorsh().DecodeTo(v). It flips the
-// default Vec/string length prefix from bincode's u64 to Borsh's u32.
-// Use this for Anchor-generated account state and other Borsh-encoded
-// structs.
-//
-// Anchor's 8-byte account discriminator must be stripped (or modeled as
-// the first [8]byte field) before calling. Borsh enums are 1-byte —
-// model them as a Go uint8 with one explicit case per variant.
-func BorshDecodeTo(data []byte, v any) error {
-	return NewDecoder(data).UseBorsh().DecodeTo(v)
 }
 
 // Pos returns the number of bytes consumed so far.

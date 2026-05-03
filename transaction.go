@@ -154,8 +154,7 @@ func (tx *Transaction) Marshal() ([]byte, error) {
 	if got, want := len(tx.Signatures), int(tx.Message.Header.NumRequiredSignatures); got != want {
 		return nil, fmt.Errorf("solana: transaction: %d signatures for %d required signers", got, want)
 	}
-	e := encoding.AcquireEncoder(tx.SerializedSize())
-	defer encoding.ReleaseEncoder(e)
+	e := encoding.NewEncoder(tx.SerializedSize())
 	e.WriteShortvec(uint16(len(tx.Signatures)))
 	for i := range tx.Signatures {
 		e.WriteBytes(tx.Signatures[i][:])
