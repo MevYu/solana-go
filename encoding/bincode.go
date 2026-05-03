@@ -154,16 +154,6 @@ type Decoder struct {
 	defaultPrefix sizePrefix
 }
 
-// UseBorsh switches the decoder into Borsh mode: untagged Vec<T> /
-// string fields use a u32 length prefix instead of the bincode u64
-// default. Returns d for chaining.
-//
-// Per-field `bin:"sizePrefix=..."` tags still take precedence; UseBorsh
-// only changes the implied default. Other Borsh / bincode differences
-// (1-byte vs 4-byte enum discriminator) are not auto-translated — model
-// enums as uint8 (Borsh) or uint32 (bincode) on the Go side.
-func (d *Decoder) UseBorsh() *Decoder { d.defaultPrefix = prefixU32; return d }
-
 // NewDecoder returns a Decoder that reads from b. The caller retains
 // ownership of b and must not mutate it for the lifetime of the Decoder
 // or of any slice returned by ReadBytes.
@@ -177,19 +167,6 @@ func NewDecoder(b []byte) *Decoder {
 // fixed-shape, performance-sensitive decoders prefer the Reader API.
 func DecodeTo(data []byte, v any) error {
 	return NewDecoder(data).DecodeTo(v)
-}
-
-// BorshDecodeTo is the Borsh-flavoured one-shot reflection decoder:
-// equivalent to NewDecoder(data).UseBorsh().DecodeTo(v). It flips the
-// default Vec/string length prefix from bincode's u64 to Borsh's u32.
-// Use this for Anchor-generated account state and other Borsh-encoded
-// structs.
-//
-// Anchor's 8-byte account discriminator must be stripped (or modeled as
-// the first [8]byte field) before calling. Borsh enums are 1-byte —
-// model them as a Go uint8 with one explicit case per variant.
-func BorshDecodeTo(data []byte, v any) error {
-	return NewDecoder(data).UseBorsh().DecodeTo(v)
 }
 
 var decoderPool = sync.Pool{New: func() any { return &Decoder{} }}

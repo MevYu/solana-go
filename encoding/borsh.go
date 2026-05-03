@@ -303,3 +303,30 @@ func (d *BorshDecoder) ReadOption() (some bool, err error) {
 		return false, fmt.Errorf("solana/encoding: borsh: invalid option tag 0x%02x", tag)
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Borsh mode for the shared Decoder
+// ----------------------------------------------------------------------------
+
+// UseBorsh switches the bincode Decoder into Borsh mode: untagged
+// Vec<T> / string fields use a u32 length prefix instead of the bincode
+// u64 default. Returns d for chaining.
+//
+// Per-field `bin:"sizePrefix=..."` tags still take precedence; UseBorsh
+// only changes the implied default. Other Borsh / bincode differences
+// (1-byte vs 4-byte enum discriminator) are not auto-translated — model
+// enums as uint8 (Borsh) or uint32 (bincode) on the Go side.
+func (d *Decoder) UseBorsh() *Decoder { d.defaultPrefix = prefixU32; return d }
+
+// BorshDecodeTo is the Borsh-flavoured one-shot reflection decoder:
+// equivalent to NewDecoder(data).UseBorsh().DecodeTo(v). It flips the
+// default Vec/string length prefix from bincode's u64 to Borsh's u32.
+// Use this for Anchor-generated account state and other Borsh-encoded
+// structs.
+//
+// Anchor's 8-byte account discriminator must be stripped (or modeled as
+// the first [8]byte field) before calling. Borsh enums are 1-byte —
+// model them as a Go uint8 with one explicit case per variant.
+func BorshDecodeTo(data []byte, v any) error {
+	return NewDecoder(data).UseBorsh().DecodeTo(v)
+}
