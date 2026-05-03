@@ -1,8 +1,8 @@
 package ws
 
 import (
-	"github.com/MevYu/solana-go/jsonrpc"
 	"context"
+	"github.com/MevYu/solana-go/jsonrpc"
 
 	solana "github.com/MevYu/solana-go"
 	"github.com/MevYu/solana-go/rpc"

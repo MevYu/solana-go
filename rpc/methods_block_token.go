@@ -17,7 +17,7 @@ import (
 func (c *Client) GetBlock(ctx context.Context, slot uint64, cfg ...GetBlockCfg) (*GetBlockResult, error) {
 	c0 := *FirstOrZero(cfg)
 	if c0.Encoding == "" {
-		c0.Encoding = EncodingBase64
+		c0.Encoding = solana.EncodingBase64
 	}
 	if c0.TransactionDetails == "" {
 		c0.TransactionDetails = "full"

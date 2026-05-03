@@ -21,7 +21,7 @@ type TransactionBuilder func(ctx context.Context, blockhash solana.Hash) (*solan
 type SendAndConfirmOption func(*sendConfig)
 
 type sendConfig struct {
-	commitment          CommitmentLevel
+	commitment          solana.CommitmentLevel
 	confirmTimeout      time.Duration
 	pollInterval        time.Duration
 	maxBlockhashRetries int
@@ -30,7 +30,7 @@ type sendConfig struct {
 
 func defaultSendConfig() sendConfig {
 	return sendConfig{
-		commitment:          CommitmentConfirmed,
+		commitment:          solana.CommitmentConfirmed,
 		confirmTimeout:      60 * time.Second,
 		pollInterval:        2 * time.Second,
 		maxBlockhashRetries: 3,
@@ -39,7 +39,7 @@ func defaultSendConfig() sendConfig {
 
 // WithSendCommitment sets the commitment level required to consider a
 // transaction confirmed. Default: Confirmed.
-func WithSendCommitment(c CommitmentLevel) SendAndConfirmOption {
+func WithSendCommitment(c solana.CommitmentLevel) SendAndConfirmOption {
 	return func(cfg *sendConfig) { cfg.commitment = c }
 }
 
@@ -245,20 +245,20 @@ func (c *Client) confirmSignature(
 	}
 }
 
-func commitmentRank(c CommitmentLevel) int {
+func commitmentRank(c solana.CommitmentLevel) int {
 	switch c {
-	case CommitmentProcessed:
+	case solana.CommitmentProcessed:
 		return 0
-	case CommitmentConfirmed:
+	case solana.CommitmentConfirmed:
 		return 1
-	case CommitmentFinalized:
+	case solana.CommitmentFinalized:
 		return 2
 	}
 	return -1
 }
 
-func statusReachedCommitment(status string, required CommitmentLevel) bool {
-	statusN := commitmentRank(CommitmentLevel(status))
+func statusReachedCommitment(status string, required solana.CommitmentLevel) bool {
+	statusN := commitmentRank(solana.CommitmentLevel(status))
 	reqN := commitmentRank(required)
 	if statusN < 0 || reqN < 0 {
 		return false

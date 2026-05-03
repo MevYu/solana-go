@@ -1,8 +1,8 @@
 package ws
 
 import (
-	"github.com/MevYu/solana-go/jsonrpc"
 	"context"
+	"github.com/MevYu/solana-go/jsonrpc"
 
 	solana "github.com/MevYu/solana-go"
 	"github.com/MevYu/solana-go/rpc"
@@ -36,8 +36,8 @@ func (s *AccountSubscription) Recv() <-chan *AccountNotification { return s.ch }
 // accountSubscribe and programSubscribe. Encoding is always sent
 // (base64 by default); commitment is omitted when unset.
 type commitmentWithEncodingParams struct {
-	Commitment rpc.CommitmentLevel `json:"commitment,omitempty"`
-	Encoding   rpc.Encoding        `json:"encoding"`
+	Commitment solana.CommitmentLevel `json:"commitment,omitempty"`
+	Encoding   solana.Encoding        `json:"encoding"`
 }
 
 // buildCommitmentWithEncoding fills the shared params struct and
@@ -48,7 +48,7 @@ func buildCommitmentWithEncoding(cfg *rpc.CommitmentWithEncodingCfg) commitmentW
 		Encoding:   cfg.Encoding,
 	}
 	if p.Encoding == "" {
-		p.Encoding = rpc.EncodingBase64
+		p.Encoding = solana.EncodingBase64
 	}
 	return p
 }

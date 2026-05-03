@@ -12,29 +12,6 @@ import (
 // still get correct output because both codecs read MarshalJSON.
 func marshalJSON(v any) ([]byte, error) { return gojson.Marshal(v) }
 
-// CommitmentLevel describes the level of confirmation required for
-// a query. Solana defines three tiers, from fastest-but-reversible
-// to slowest-but-permanent.
-type CommitmentLevel = solana.CommitmentLevel
-
-const (
-	CommitmentProcessed = solana.CommitmentProcessed
-	CommitmentConfirmed = solana.CommitmentConfirmed
-	CommitmentFinalized = solana.CommitmentFinalized
-)
-
-// Encoding is the on-wire encoding for binary payloads in RPC
-// responses that carry account data or transaction data.
-type Encoding = solana.Encoding
-
-const (
-	EncodingJSONParsed = solana.EncodingJSONParsed
-	EncodingJSON       = solana.EncodingJSON
-	EncodingBase58     = solana.EncodingBase58
-	EncodingBase64     = solana.EncodingBase64
-	EncodingBase64ZSTD = solana.EncodingBase64ZSTD
-)
-
 // DataSlice requests a subrange of account data to be returned,
 // reducing bandwidth for large accounts.
 type DataSlice struct {
@@ -60,7 +37,7 @@ type DataSlice struct {
 // GetTokenLargestAccounts, GetTokenSupply, GetTokenAccountBalance,
 // GetBlocks, GetBlocksWithLimit.
 type CommitmentCfg struct {
-	Commitment CommitmentLevel `json:"commitment,omitempty"`
+	Commitment solana.CommitmentLevel `json:"commitment,omitempty"`
 }
 
 // CommitmentWithMinSlotCfg is the config object for RPC methods that
@@ -69,16 +46,16 @@ type CommitmentCfg struct {
 // GetTransactionCount, IsBlockhashValid, GetFeeForMessage,
 // GetStakeActivation.
 type CommitmentWithMinSlotCfg struct {
-	Commitment     CommitmentLevel `json:"commitment,omitempty"`
-	MinContextSlot *uint64         `json:"minContextSlot,omitempty"`
+	Commitment     solana.CommitmentLevel `json:"commitment,omitempty"`
+	MinContextSlot *uint64                `json:"minContextSlot,omitempty"`
 }
 
 // CommitmentWithEncodingCfg is the config object for WebSocket
 // subscriptions that honour {commitment, encoding}:
 // AccountSubscribe, ProgramSubscribe.
 type CommitmentWithEncodingCfg struct {
-	Commitment CommitmentLevel `json:"commitment,omitempty"`
-	Encoding   Encoding        `json:"encoding,omitempty"`
+	Commitment solana.CommitmentLevel `json:"commitment,omitempty"`
+	Encoding   solana.Encoding        `json:"encoding,omitempty"`
 }
 
 // AccountInfoCfg is the config object for account-data RPC methods
@@ -86,37 +63,37 @@ type CommitmentWithEncodingCfg struct {
 // GetAccountInfo, GetMultipleAccounts, GetProgramAccounts,
 // GetTokenAccountsByOwner, GetTokenAccountsByDelegate.
 type AccountInfoCfg struct {
-	Commitment     CommitmentLevel `json:"commitment,omitempty"`
-	Encoding       Encoding        `json:"encoding,omitempty"`
-	DataSlice      *DataSlice      `json:"dataSlice,omitempty"`
-	MinContextSlot *uint64         `json:"minContextSlot,omitempty"`
+	Commitment     solana.CommitmentLevel `json:"commitment,omitempty"`
+	Encoding       solana.Encoding        `json:"encoding,omitempty"`
+	DataSlice      *DataSlice             `json:"dataSlice,omitempty"`
+	MinContextSlot *uint64                `json:"minContextSlot,omitempty"`
 }
 
 // GetBlockCfg is the config object for GetBlock and BlockSubscribe.
 // TransactionDetails defaults to "full" when empty; Encoding defaults
 // to base64 when empty (both via MarshalJSON below).
 type GetBlockCfg struct {
-	Commitment                     CommitmentLevel `json:"commitment,omitempty"`
-	Encoding                       Encoding        `json:"encoding,omitempty"`
-	MaxSupportedTransactionVersion *uint64         `json:"maxSupportedTransactionVersion,omitempty"`
-	TransactionDetails             string          `json:"transactionDetails,omitempty"` // "full" | "accounts" | "signatures" | "none"
-	Rewards                        *bool           `json:"rewards,omitempty"`
+	Commitment                     solana.CommitmentLevel `json:"commitment,omitempty"`
+	Encoding                       solana.Encoding        `json:"encoding,omitempty"`
+	MaxSupportedTransactionVersion *uint64                `json:"maxSupportedTransactionVersion,omitempty"`
+	TransactionDetails             string                 `json:"transactionDetails,omitempty"` // "full" | "accounts" | "signatures" | "none"
+	Rewards                        *bool                  `json:"rewards,omitempty"`
 }
 
 // GetTransactionCfg is the config object for GetTransaction.
 type GetTransactionCfg struct {
-	Commitment                     CommitmentLevel `json:"commitment,omitempty"`
-	Encoding                       Encoding        `json:"encoding,omitempty"`
-	MaxSupportedTransactionVersion *uint64         `json:"maxSupportedTransactionVersion,omitempty"`
+	Commitment                     solana.CommitmentLevel `json:"commitment,omitempty"`
+	Encoding                       solana.Encoding        `json:"encoding,omitempty"`
+	MaxSupportedTransactionVersion *uint64                `json:"maxSupportedTransactionVersion,omitempty"`
 }
 
 // SignaturesForAddressCfg is the config object for GetSignaturesForAddress.
 type SignaturesForAddressCfg struct {
-	Commitment     CommitmentLevel `json:"commitment,omitempty"`
-	MinContextSlot *uint64         `json:"minContextSlot,omitempty"`
-	Limit          *int            `json:"limit,omitempty"`
-	Before         string          `json:"before,omitempty"`
-	Until          string          `json:"until,omitempty"`
+	Commitment     solana.CommitmentLevel `json:"commitment,omitempty"`
+	MinContextSlot *uint64                `json:"minContextSlot,omitempty"`
+	Limit          *int                   `json:"limit,omitempty"`
+	Before         string                 `json:"before,omitempty"`
+	Until          string                 `json:"until,omitempty"`
 }
 
 // SignatureStatusesCfg is the config object for GetSignatureStatuses.
@@ -128,50 +105,50 @@ type SignatureStatusesCfg struct {
 // SendRawTransaction. Encoding may be base58 or base64; base64 is the
 // default and recommended choice (applied via MarshalJSON below).
 type SendTxCfg struct {
-	SkipPreflight       *bool           `json:"skipPreflight,omitempty"`
-	PreflightCommitment CommitmentLevel `json:"preflightCommitment,omitempty"`
-	MaxRetries          *uint           `json:"maxRetries,omitempty"`
-	MinContextSlot      *uint64         `json:"minContextSlot,omitempty"`
-	Encoding            Encoding        `json:"encoding,omitempty"`
+	SkipPreflight       *bool                  `json:"skipPreflight,omitempty"`
+	PreflightCommitment solana.CommitmentLevel `json:"preflightCommitment,omitempty"`
+	MaxRetries          *uint                  `json:"maxRetries,omitempty"`
+	MinContextSlot      *uint64                `json:"minContextSlot,omitempty"`
+	Encoding            solana.Encoding        `json:"encoding,omitempty"`
 }
 
 // SimulateTxCfg is the config object for SimulateTransaction.
 type SimulateTxCfg struct {
-	Commitment             CommitmentLevel `json:"commitment,omitempty"`
-	SigVerify              *bool           `json:"sigVerify,omitempty"`
-	ReplaceRecentBlockhash *bool           `json:"replaceRecentBlockhash,omitempty"`
-	MinContextSlot         *uint64         `json:"minContextSlot,omitempty"`
-	Encoding               Encoding        `json:"encoding,omitempty"`
+	Commitment             solana.CommitmentLevel `json:"commitment,omitempty"`
+	SigVerify              *bool                  `json:"sigVerify,omitempty"`
+	ReplaceRecentBlockhash *bool                  `json:"replaceRecentBlockhash,omitempty"`
+	MinContextSlot         *uint64                `json:"minContextSlot,omitempty"`
+	Encoding               solana.Encoding        `json:"encoding,omitempty"`
 }
 
 // LargestAccountsCfg is the config object for GetLargestAccounts.
 // Filter is "circulating" or "nonCirculating".
 type LargestAccountsCfg struct {
-	Commitment CommitmentLevel `json:"commitment,omitempty"`
-	Filter     string          `json:"filter,omitempty"`
+	Commitment solana.CommitmentLevel `json:"commitment,omitempty"`
+	Filter     string                 `json:"filter,omitempty"`
 }
 
 // InflationRewardCfg is the config object for GetInflationReward.
 type InflationRewardCfg struct {
-	Commitment     CommitmentLevel `json:"commitment,omitempty"`
-	MinContextSlot *uint64         `json:"minContextSlot,omitempty"`
-	Epoch          *uint64         `json:"epoch,omitempty"`
+	Commitment     solana.CommitmentLevel `json:"commitment,omitempty"`
+	MinContextSlot *uint64                `json:"minContextSlot,omitempty"`
+	Epoch          *uint64                `json:"epoch,omitempty"`
 }
 
 // LeaderScheduleCfg is the config object for GetLeaderSchedule.
 type LeaderScheduleCfg struct {
-	Commitment CommitmentLevel `json:"commitment,omitempty"`
-	Identity   string          `json:"identity,omitempty"`
+	Commitment solana.CommitmentLevel `json:"commitment,omitempty"`
+	Identity   string                 `json:"identity,omitempty"`
 }
 
 // LogsSubscribeCfg is the config object for LogsSubscribe.
 type LogsSubscribeCfg struct {
-	Commitment CommitmentLevel `json:"commitment,omitempty"`
+	Commitment solana.CommitmentLevel `json:"commitment,omitempty"`
 }
 
 // SignatureSubscribeCfg is the config object for SignatureSubscribe.
 type SignatureSubscribeCfg struct {
-	Commitment CommitmentLevel `json:"commitment,omitempty"`
+	Commitment solana.CommitmentLevel `json:"commitment,omitempty"`
 }
 
 // MarshalJSON injects the SDK's default encoding ("base64") into
@@ -187,7 +164,7 @@ type SignatureSubscribeCfg struct {
 // ceremony for the rare paths.
 func (c AccountInfoCfg) MarshalJSON() ([]byte, error) {
 	if c.Encoding == "" {
-		c.Encoding = EncodingBase64
+		c.Encoding = solana.EncodingBase64
 	}
 	type alias AccountInfoCfg
 	return marshalJSON(alias(c))

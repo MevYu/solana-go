@@ -2,7 +2,6 @@ package ws
 
 import (
 	"context"
-
 )
 
 // SlotInfo is a single update delivered to a SlotSubscription.
