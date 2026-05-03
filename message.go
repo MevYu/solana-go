@@ -170,8 +170,7 @@ func (m *Message) Marshal() ([]byte, error) {
 	if err := m.validate(); err != nil {
 		return nil, err
 	}
-	e := encoding.AcquireEncoder(m.SerializedSize())
-	defer encoding.ReleaseEncoder(e)
+	e := encoding.NewEncoder(m.SerializedSize())
 	if err := m.marshalInto(e); err != nil {
 		return nil, err
 	}
