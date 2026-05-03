@@ -27,8 +27,8 @@ type VoteAccounts struct {
 
 // GetVoteAccounts returns the account info and associated stake for all voting accounts.
 func (c *Client) GetVoteAccounts(ctx context.Context, cfg ...CommitmentCfg) (*VoteAccounts, error) {
-	var result VoteAccounts
-	if err := c.CallContext(ctx, &result, "getVoteAccounts", FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[VoteAccounts](ctx, c.Client, "getVoteAccounts", FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -47,8 +47,8 @@ type ClusterNode struct {
 
 // GetClusterNodes returns information about all nodes participating in the cluster.
 func (c *Client) GetClusterNodes(ctx context.Context) ([]ClusterNode, error) {
-	var result []ClusterNode
-	if err := c.CallContext(ctx, &result, "getClusterNodes"); err != nil {
+	result, err := jsonrpc.CallContext[[]ClusterNode](ctx, c.Client, "getClusterNodes")
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -74,11 +74,11 @@ type BlockProductionResult struct {
 
 // GetBlockProduction returns recent block production information.
 func (c *Client) GetBlockProduction(ctx context.Context, cfg ...CommitmentCfg) (*BlockProductionResult, error) {
-	slot, v, err := jsonrpc.CallContextValue[BlockProductionValue](ctx, c.Client, "getBlockProduction", FirstOrZero(cfg))
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[BlockProductionValue]](ctx, c.Client, "getBlockProduction", FirstOrZero(cfg))
 	if err != nil {
 		return nil, err
 	}
-	return &BlockProductionResult{Slot: slot, Value: v}, nil
+	return &BlockProductionResult{Slot: resp.Context.Slot, Value: resp.Value}, nil
 }
 
 // StakeActivation is the decoded response of GetStakeActivation.
@@ -90,8 +90,8 @@ type StakeActivation struct {
 
 // GetStakeActivation returns the activation state of a stake account.
 func (c *Client) GetStakeActivation(ctx context.Context, account solana.PublicKey, cfg ...CommitmentWithMinSlotCfg) (*StakeActivation, error) {
-	var result StakeActivation
-	if err := c.CallContext(ctx, &result, "getStakeActivation", account.String(), FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[StakeActivation](ctx, c.Client, "getStakeActivation", account.String(), FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -99,9 +99,9 @@ func (c *Client) GetStakeActivation(ctx context.Context, account solana.PublicKe
 
 // GetStakeMinimumDelegation returns the stake minimum delegation in lamports.
 func (c *Client) GetStakeMinimumDelegation(ctx context.Context, cfg ...CommitmentCfg) (uint64, error) {
-	_, v, err := jsonrpc.CallContextValue[uint64](ctx, c.Client, "getStakeMinimumDelegation", FirstOrZero(cfg))
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[uint64]](ctx, c.Client, "getStakeMinimumDelegation", FirstOrZero(cfg))
 	if err != nil {
 		return 0, err
 	}
-	return v, nil
+	return resp.Value, nil
 }

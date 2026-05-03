@@ -10,9 +10,15 @@ import (
 //
 //	{"context": {"slot": <slot>}, "value": <T>}
 //
-// It is exported so callers can decode directly with Client.Call
-// when they have a reason to own the envelope, but the common path
-// is to use CallContextValue, which hides the envelope entirely.
+// To decode this envelope, instantiate CallContext with
+// ContextValue[T] as the type argument:
+//
+//	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[*AccountInfo]](
+//	    ctx, c, "getAccountInfo", addr, cfg)
+//	// resp.Context.Slot, resp.Value
+//
+// The type is also reused by ws.Client notification dispatchers,
+// which decode the same envelope shape from raw JSON bytes.
 type ContextValue[T any] struct {
 	Context struct {
 		Slot uint64 `json:"slot"`
@@ -20,42 +26,50 @@ type ContextValue[T any] struct {
 	Value T `json:"value"`
 }
 
-// contextEnvelope is the full JSON-RPC response shape for methods
-// that return the {context, value} wrapper. Using a generic typed
-// result field lets the codec decode the entire response—including
-// the context slot and typed value—in a single Unmarshal pass,
-// eliminating the second pass that Call's two-step Response+RawJSON
-// approach requires.
-type contextEnvelope[T any] struct {
-	Result ContextValue[T] `json:"result"`
-	Error  *Error          `json:"error"`
+// responseEnvelope is the JSON-RPC 2.0 response envelope parameterised
+// over the typed result. Using a generic Result field lets the codec
+// decode the whole response in a single Unmarshal pass with the
+// concrete type known at compile time, so no interface dispatch and
+// no per-instance reflection are needed beyond what the codec already
+// caches for T.
+type responseEnvelope[T any] struct {
+	Result T      `json:"result"`
+	Error  *Error `json:"error"`
 }
 
-// CallContextValue issues a JSON-RPC call that is known to return
-// the {context:{slot}, value:T} envelope and returns the decoded
-// slot and value.
+// CallContext issues a JSON-RPC 2.0 request and returns the decoded
+// typed result in a single Unmarshal pass.
 //
-// Unlike CallContext, which decodes the full response envelope in
-// two passes (first into Response with a RawJSON result field,
-// then into the caller's type), CallContextValue decodes the
-// entire wire response—including the context slot and typed
-// value—in a single Unmarshal call. This halves codec work per
-// call for all context-wrapped methods (getAccountInfo, getBalance,
-// …).
+// CallContext is a free generic function (Go does not allow type
+// parameters on methods) that takes the *Client explicitly:
 //
-// args is passed variadically. The zero value of T is returned on error.
-func CallContextValue[T any](ctx context.Context, c *Client, method string, args ...any) (slot uint64, value T, err error) {
+//	balance, err := jsonrpc.CallContext[uint64](ctx, c, "getBalance", addr)
+//
+// CallContext uses the configured RetryPolicy to transparently retry
+// transient failures. The caller's context controls deadlines and
+// cancellation; a cancelled or expired context returns immediately
+// with the context error wrapped in a method-labelled message.
+//
+// On a JSON-RPC error response, CallContext returns *ErrRPC wrapping
+// the code, message, data and raw body. Use errors.As to recover it.
+// The zero value of T is returned on any error.
+//
+// For methods that return Solana's {context:{slot}, value} envelope,
+// instantiate T as ContextValue[X]; the slot is then on
+// result.Context.Slot and the payload on result.Value.
+func CallContext[T any](ctx context.Context, c *Client, method string, args ...any) (T, error) {
+	var zero T
 	body, err := c.callRaw(ctx, method, args)
 	if err != nil {
-		return 0, value, err
+		return zero, err
 	}
 
-	var resp contextEnvelope[T]
+	var resp responseEnvelope[T]
 	if err = c.codec.Unmarshal(body, &resp); err != nil {
-		return 0, value, fmt.Errorf("solana rpc %s: decode response: %w", method, err)
+		return zero, fmt.Errorf("solana rpc %s: decode response: %w", method, err)
 	}
 	if resp.Error != nil {
-		return 0, value, &ErrRPC{
+		return zero, &ErrRPC{
 			Method: method,
 			Code:   resp.Error.Code,
 			Msg:    resp.Error.Message,
@@ -63,5 +77,5 @@ func CallContextValue[T any](ctx context.Context, c *Client, method string, args
 			Body:   body,
 		}
 	}
-	return resp.Result.Context.Slot, resp.Result.Value, nil
+	return resp.Result, nil
 }

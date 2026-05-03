@@ -15,8 +15,8 @@ type SolanaVersion struct {
 
 // GetHealth returns the current health of the node.
 func (c *Client) GetHealth(ctx context.Context) (string, error) {
-	var result string
-	if err := c.CallContext(ctx, &result, "getHealth"); err != nil {
+	result, err := jsonrpc.CallContext[string](ctx, c.Client, "getHealth")
+	if err != nil {
 		return "", err
 	}
 	return result, nil
@@ -24,8 +24,8 @@ func (c *Client) GetHealth(ctx context.Context) (string, error) {
 
 // GetVersion returns the current version of the Solana node.
 func (c *Client) GetVersion(ctx context.Context) (*SolanaVersion, error) {
-	var result SolanaVersion
-	if err := c.CallContext(ctx, &result, "getVersion"); err != nil {
+	result, err := jsonrpc.CallContext[SolanaVersion](ctx, c.Client, "getVersion")
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -33,10 +33,10 @@ func (c *Client) GetVersion(ctx context.Context) (*SolanaVersion, error) {
 
 // GetIdentity returns the identity public key of the current node.
 func (c *Client) GetIdentity(ctx context.Context) (solana.PublicKey, error) {
-	var raw struct {
+	raw, err := jsonrpc.CallContext[struct {
 		Identity string `json:"identity"`
-	}
-	if err := c.CallContext(ctx, &raw, "getIdentity"); err != nil {
+	}](ctx, c.Client, "getIdentity")
+	if err != nil {
 		return solana.PublicKey{}, err
 	}
 	return solana.PublicKeyFromBase58(raw.Identity)
@@ -44,8 +44,8 @@ func (c *Client) GetIdentity(ctx context.Context) (solana.PublicKey, error) {
 
 // GetGenesisHash returns the genesis hash.
 func (c *Client) GetGenesisHash(ctx context.Context) (solana.Hash, error) {
-	var raw string
-	if err := c.CallContext(ctx, &raw, "getGenesisHash"); err != nil {
+	raw, err := jsonrpc.CallContext[string](ctx, c.Client, "getGenesisHash")
+	if err != nil {
 		return solana.Hash{}, err
 	}
 	return solana.HashFromBase58(raw)
@@ -59,8 +59,8 @@ type HighestSnapshotSlot struct {
 
 // GetHighestSnapshotSlot returns the highest slot for which the node has a snapshot.
 func (c *Client) GetHighestSnapshotSlot(ctx context.Context) (*HighestSnapshotSlot, error) {
-	var result HighestSnapshotSlot
-	if err := c.CallContext(ctx, &result, "getHighestSnapshotSlot"); err != nil {
+	result, err := jsonrpc.CallContext[HighestSnapshotSlot](ctx, c.Client, "getHighestSnapshotSlot")
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -68,8 +68,8 @@ func (c *Client) GetHighestSnapshotSlot(ctx context.Context) (*HighestSnapshotSl
 
 // GetTransactionCount returns the current transaction count from the ledger.
 func (c *Client) GetTransactionCount(ctx context.Context, cfg ...CommitmentWithMinSlotCfg) (uint64, error) {
-	var count uint64
-	if err := c.CallContext(ctx, &count, "getTransactionCount", FirstOrZero(cfg)); err != nil {
+	count, err := jsonrpc.CallContext[uint64](ctx, c.Client, "getTransactionCount", FirstOrZero(cfg))
+	if err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -77,17 +77,17 @@ func (c *Client) GetTransactionCount(ctx context.Context, cfg ...CommitmentWithM
 
 // IsBlockhashValid returns whether a blockhash is still valid.
 func (c *Client) IsBlockhashValid(ctx context.Context, blockhash solana.Hash, cfg ...CommitmentWithMinSlotCfg) (bool, error) {
-	_, valid, err := jsonrpc.CallContextValue[bool](ctx, c.Client, "isBlockhashValid", blockhash.String(), FirstOrZero(cfg))
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[bool]](ctx, c.Client, "isBlockhashValid", blockhash.String(), FirstOrZero(cfg))
 	if err != nil {
 		return false, err
 	}
-	return valid, nil
+	return resp.Value, nil
 }
 
 // MinimumLedgerSlot returns the lowest slot that the node has information about.
 func (c *Client) MinimumLedgerSlot(ctx context.Context) (uint64, error) {
-	var slot uint64
-	if err := c.CallContext(ctx, &slot, "minimumLedgerSlot"); err != nil {
+	slot, err := jsonrpc.CallContext[uint64](ctx, c.Client, "minimumLedgerSlot")
+	if err != nil {
 		return 0, err
 	}
 	return slot, nil
@@ -95,8 +95,8 @@ func (c *Client) MinimumLedgerSlot(ctx context.Context) (uint64, error) {
 
 // GetMaxRetransmitSlot returns the max slot seen from the retransmit stage.
 func (c *Client) GetMaxRetransmitSlot(ctx context.Context) (uint64, error) {
-	var slot uint64
-	if err := c.CallContext(ctx, &slot, "getMaxRetransmitSlot"); err != nil {
+	slot, err := jsonrpc.CallContext[uint64](ctx, c.Client, "getMaxRetransmitSlot")
+	if err != nil {
 		return 0, err
 	}
 	return slot, nil
@@ -104,8 +104,8 @@ func (c *Client) GetMaxRetransmitSlot(ctx context.Context) (uint64, error) {
 
 // GetMaxShredInsertSlot returns the max slot seen from after shred insert.
 func (c *Client) GetMaxShredInsertSlot(ctx context.Context) (uint64, error) {
-	var slot uint64
-	if err := c.CallContext(ctx, &slot, "getMaxShredInsertSlot"); err != nil {
+	slot, err := jsonrpc.CallContext[uint64](ctx, c.Client, "getMaxShredInsertSlot")
+	if err != nil {
 		return 0, err
 	}
 	return slot, nil

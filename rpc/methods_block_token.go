@@ -27,8 +27,8 @@ func (c *Client) GetBlock(ctx context.Context, slot uint64, cfg ...GetBlockCfg) 
 		c0.MaxSupportedTransactionVersion = &zero
 	}
 
-	var raw *GetBlockResult
-	if err := c.CallContext(ctx, &raw, "getBlock", slot, c0); err != nil {
+	raw, err := jsonrpc.CallContext[*GetBlockResult](ctx, c.Client, "getBlock", slot, c0)
+	if err != nil {
 		return nil, err
 	}
 	return raw, nil
@@ -37,8 +37,8 @@ func (c *Client) GetBlock(ctx context.Context, slot uint64, cfg ...GetBlockCfg) 
 // GetBlocks returns the list of confirmed block slots in the inclusive range [start, end].
 // When end is nil, the cluster's latest confirmed block bounds the range.
 func (c *Client) GetBlocks(ctx context.Context, start uint64, end *uint64, cfg ...CommitmentCfg) ([]uint64, error) {
-	var result []uint64
-	if err := c.CallContext(ctx, &result, "getBlocks", start, end, FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[[]uint64](ctx, c.Client, "getBlocks", start, end, FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -60,11 +60,11 @@ type GetTokenAccountBalanceResult struct {
 
 // GetTokenAccountBalance returns the balance of an SPL Token account.
 func (c *Client) GetTokenAccountBalance(ctx context.Context, account solana.PublicKey, cfg ...CommitmentCfg) (*GetTokenAccountBalanceResult, error) {
-	slot, v, err := jsonrpc.CallContextValue[TokenAmount](ctx, c.Client, "getTokenAccountBalance", account.String(), FirstOrZero(cfg))
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[TokenAmount]](ctx, c.Client, "getTokenAccountBalance", account.String(), FirstOrZero(cfg))
 	if err != nil {
 		return nil, err
 	}
-	return &GetTokenAccountBalanceResult{Slot: slot, Value: v}, nil
+	return &GetTokenAccountBalanceResult{Slot: resp.Context.Slot, Value: resp.Value}, nil
 }
 
 // GetTokenSupplyResult is the decoded response of GetTokenSupply.
@@ -75,11 +75,11 @@ type GetTokenSupplyResult struct {
 
 // GetTokenSupply returns the total supply of an SPL Token mint.
 func (c *Client) GetTokenSupply(ctx context.Context, mint solana.PublicKey, cfg ...CommitmentCfg) (*GetTokenSupplyResult, error) {
-	slot, v, err := jsonrpc.CallContextValue[TokenAmount](ctx, c.Client, "getTokenSupply", mint.String(), FirstOrZero(cfg))
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[TokenAmount]](ctx, c.Client, "getTokenSupply", mint.String(), FirstOrZero(cfg))
 	if err != nil {
 		return nil, err
 	}
-	return &GetTokenSupplyResult{Slot: slot, Value: v}, nil
+	return &GetTokenSupplyResult{Slot: resp.Context.Slot, Value: resp.Value}, nil
 }
 
 // BlockCommitment is the decoded response of GetBlockCommitment.
@@ -90,8 +90,8 @@ type BlockCommitment struct {
 
 // GetBlockCommitment returns the commitment for a given block slot.
 func (c *Client) GetBlockCommitment(ctx context.Context, slot uint64) (*BlockCommitment, error) {
-	var result BlockCommitment
-	if err := c.CallContext(ctx, &result, "getBlockCommitment", slot); err != nil {
+	result, err := jsonrpc.CallContext[BlockCommitment](ctx, c.Client, "getBlockCommitment", slot)
+	if err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -99,8 +99,8 @@ func (c *Client) GetBlockCommitment(ctx context.Context, slot uint64) (*BlockCom
 
 // GetBlocksWithLimit returns a list of confirmed blocks starting at startSlot up to limit blocks.
 func (c *Client) GetBlocksWithLimit(ctx context.Context, startSlot uint64, limit uint64, cfg ...CommitmentCfg) ([]uint64, error) {
-	var result []uint64
-	if err := c.CallContext(ctx, &result, "getBlocksWithLimit", startSlot, limit, FirstOrZero(cfg)); err != nil {
+	result, err := jsonrpc.CallContext[[]uint64](ctx, c.Client, "getBlocksWithLimit", startSlot, limit, FirstOrZero(cfg))
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -108,8 +108,8 @@ func (c *Client) GetBlocksWithLimit(ctx context.Context, startSlot uint64, limit
 
 // GetFirstAvailableBlock returns the slot of the lowest confirmed block not purged from the ledger.
 func (c *Client) GetFirstAvailableBlock(ctx context.Context) (uint64, error) {
-	var slot uint64
-	if err := c.CallContext(ctx, &slot, "getFirstAvailableBlock"); err != nil {
+	slot, err := jsonrpc.CallContext[uint64](ctx, c.Client, "getFirstAvailableBlock")
+	if err != nil {
 		return 0, err
 	}
 	return slot, nil

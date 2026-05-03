@@ -30,10 +30,11 @@ func (c *Client) GetAddressLookupTable(ctx context.Context, address solana.Publi
 		MinContextSlot: opt.MinContextSlot,
 		Encoding:       solana.EncodingBase64,
 	}
-	slot, acc, err := jsonrpc.CallContextValue[*solana.AccountInfo](ctx, c.Client, "getAccountInfo", address.String(), infoCfg)
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[*solana.AccountInfo]](ctx, c.Client, "getAccountInfo", address.String(), infoCfg)
 	if err != nil {
 		return nil, err
 	}
+	slot, acc := resp.Context.Slot, resp.Value
 	if acc == nil {
 		return nil, nil
 	}

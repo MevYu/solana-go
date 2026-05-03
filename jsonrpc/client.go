@@ -334,7 +334,7 @@ func (c *Client) sendRaw(ctx context.Context, label string, build func() ([]byte
 }
 
 // callRaw is the single-request convenience on top of sendRaw used by
-// CallContext and CallContextValue.
+// CallContext.
 func (c *Client) callRaw(ctx context.Context, method string, args []any) ([]byte, error) {
 	if args == nil {
 		args = []any{}
@@ -350,49 +350,6 @@ func (c *Client) callRaw(ctx context.Context, method string, args []any) ([]byte
 	})
 }
 
-// CallContext issues a JSON-RPC 2.0 request to the server.
-//
-// method is the RPC method name (for example "getBalance"). args is
-// the list of positional parameters passed variadically; omit
-// entirely for methods that take no parameters and the client will
-// send an empty array, which is the shape Solana expects. result is
-// a pointer into which the decoded result is written; pass nil to
-// discard the result.
-//
-// CallContext uses the configured RetryPolicy to transparently retry
-// transient failures. The caller's context controls deadlines and
-// cancellation; a cancelled or expired context returns immediately
-// with the context error wrapped in a method-labelled message.
-//
-// When the server returns a JSON-RPC error object, CallContext
-// returns an *ErrRPC that wraps the code, message, data and raw
-// body. Use errors.As to recover it.
-func (c *Client) CallContext(ctx context.Context, result any, method string, args ...any) error {
-	body, err := c.callRaw(ctx, method, args)
-	if err != nil {
-		return err
-	}
-
-	var resp Response
-	if err := c.codec.Unmarshal(body, &resp); err != nil {
-		return fmt.Errorf("solana rpc %s: decode response: %w", method, err)
-	}
-	if resp.Error != nil {
-		return &ErrRPC{
-			Method: method,
-			Code:   resp.Error.Code,
-			Msg:    resp.Error.Message,
-			Data:   resp.Error.Data,
-			Body:   body,
-		}
-	}
-	if result != nil && len(resp.Result) > 0 {
-		if err := c.codec.Unmarshal(resp.Result, result); err != nil {
-			return fmt.Errorf("solana rpc %s: decode result: %w", method, err)
-		}
-	}
-	return nil
-}
 
 // doHTTP sends body as a JSON POST request and returns the response body.
 // On a non-2xx status it returns an *httpError containing the response body.

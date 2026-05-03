@@ -12,8 +12,8 @@ import (
 // RequestAirdrop asks the cluster to deposit lamports into pubkey.
 // Only valid on devnet and testnet.
 func (c *Client) RequestAirdrop(ctx context.Context, pubkey solana.PublicKey, lamports uint64, cfg ...CommitmentCfg) (solana.Signature, error) {
-	var sigStr string
-	if err := c.CallContext(ctx, &sigStr, "requestAirdrop", pubkey.String(), lamports, FirstOrZero(cfg)); err != nil {
+	sigStr, err := jsonrpc.CallContext[string](ctx, c.Client, "requestAirdrop", pubkey.String(), lamports, FirstOrZero(cfg))
+	if err != nil {
 		return solana.Signature{}, err
 	}
 	return solana.SignatureFromBase58(sigStr)
@@ -35,11 +35,11 @@ func (c *Client) GetFeeForMessage(ctx context.Context, msg *solana.Message, cfg 
 		return nil, fmt.Errorf("solana: GetFeeForMessage: marshal: %w", err)
 	}
 	encoded := base64.StdEncoding.EncodeToString(msgBytes)
-	slot, fee, err := jsonrpc.CallContextValue[*uint64](ctx, c.Client, "getFeeForMessage", encoded, FirstOrZero(cfg))
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[*uint64]](ctx, c.Client, "getFeeForMessage", encoded, FirstOrZero(cfg))
 	if err != nil {
 		return nil, err
 	}
-	return &GetFeeForMessageResult{Slot: slot, Fee: fee}, nil
+	return &GetFeeForMessageResult{Slot: resp.Context.Slot, Fee: resp.Value}, nil
 }
 
 // MaxGetRecentPrioritizationFeesAddresses is the per-request limit
@@ -55,8 +55,8 @@ func (c *Client) GetRecentPrioritizationFees(ctx context.Context, addresses []so
 	for i, a := range addresses {
 		keys[i] = a.String()
 	}
-	var result []PrioritizationFee
-	if err := c.CallContext(ctx, &result, "getRecentPrioritizationFees", keys); err != nil {
+	result, err := jsonrpc.CallContext[[]PrioritizationFee](ctx, c.Client, "getRecentPrioritizationFees", keys)
+	if err != nil {
 		return nil, err
 	}
 	return result, nil

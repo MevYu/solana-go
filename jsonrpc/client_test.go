@@ -54,10 +54,10 @@ func TestClient_Call_HappyPath(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, Config{})
-	var result struct {
+	result, err := CallContext[struct {
 		Value uint64 `json:"value"`
-	}
-	if err := c.CallContext(context.Background(), &result, "getBalance", []any{"somepubkey"}...); err != nil {
+	}](context.Background(), c, "getBalance", []any{"somepubkey"}...)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if result.Value != 12345 {
@@ -82,7 +82,7 @@ func TestClient_Call_RPCError(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, Config{})
-	err := c.CallContext(context.Background(), nil, "getBalance")
+	_, err := CallContext[any](context.Background(), c, "getBalance")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -129,8 +129,8 @@ func TestClient_Call_Retries5xx(t *testing.T) {
 	}
 
 	c := NewClientWith(srv.URL, WithRetryPolicy(fastPolicy))
-	var result string
-	if err := c.CallContext(context.Background(), &result, "ping"); err != nil {
+	result, err := CallContext[string](context.Background(), c, "ping")
+	if err != nil {
 		t.Fatal(err)
 	}
 	if result != "ok" {
@@ -151,7 +151,7 @@ func TestClient_Call_NoRetry4xx(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, Config{})
-	err := c.CallContext(context.Background(), nil, "ping")
+	_, err := CallContext[any](context.Background(), c, "ping")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -174,7 +174,7 @@ func TestClient_Call_ContextCancelled(t *testing.T) {
 	c := NewClient(srv.URL, Config{})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	err := c.CallContext(ctx, nil, "ping")
+	_, err := CallContext[any](ctx, c, "ping")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -197,7 +197,7 @@ func TestClient_Call_NilResultDiscarded(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, Config{})
-	if err := c.CallContext(context.Background(), nil, "ping"); err != nil {
+	if _, err := CallContext[any](context.Background(), c, "ping"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -232,16 +232,17 @@ func TestClient_Call_CustomCodec(t *testing.T) {
 
 	codec := &countingCodec{}
 	c := NewClientWith(srv.URL, WithCodec(codec))
-	var result int
-	if err := c.CallContext(context.Background(), &result, "x"); err != nil {
+	result, err := CallContext[int](context.Background(), c, "x")
+	if err != nil {
 		t.Fatal(err)
 	}
 	if codec.marshalCalls.Load() != 1 {
 		t.Errorf("marshal calls = %d, want 1", codec.marshalCalls.Load())
 	}
-	// Two unmarshals: one for the Response envelope, one for the result.
-	if codec.unmarshalCalls.Load() != 2 {
-		t.Errorf("unmarshal calls = %d, want 2", codec.unmarshalCalls.Load())
+	// Single Unmarshal: the response envelope is generic over the typed
+	// result, so the codec decodes envelope + typed result in one pass.
+	if codec.unmarshalCalls.Load() != 1 {
+		t.Errorf("unmarshal calls = %d, want 1", codec.unmarshalCalls.Load())
 	}
 	if result != 42 {
 		t.Errorf("result = %d", result)
@@ -255,7 +256,7 @@ func TestClient_Call_MalformedResponse(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, Config{})
-	err := c.CallContext(context.Background(), nil, "x")
+	_, err := CallContext[any](context.Background(), c, "x")
 	if err == nil {
 		t.Fatal("expected decode error")
 	}
@@ -277,7 +278,7 @@ func TestClient_Call_EmptyParamsSent(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, Config{})
-	if err := c.CallContext(context.Background(), nil, "x"); err != nil {
+	if _, err := CallContext[any](context.Background(), c, "x"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -309,7 +310,7 @@ func TestClient_Call_UniqueIDs(t *testing.T) {
 
 	c := NewClient(srv.URL, Config{})
 	for i := 0; i < 10; i++ {
-		if err := c.CallContext(context.Background(), nil, "x"); err != nil {
+		if _, err := CallContext[any](context.Background(), c, "x"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -389,8 +390,8 @@ func TestClient_Call_PostBodyContainsMethod(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, Config{})
-	var n int
-	if err := c.CallContext(context.Background(), &n, "getSlot"); err != nil {
+	n, err := CallContext[int](context.Background(), c, "getSlot")
+	if err != nil {
 		t.Fatalf("Call: %v", err)
 	}
 	if n != 42 {

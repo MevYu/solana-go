@@ -154,16 +154,6 @@ type Decoder struct {
 	defaultPrefix sizePrefix
 }
 
-// UseBorsh switches the decoder into Borsh mode: untagged Vec<T> /
-// string fields use a u32 length prefix instead of the bincode u64
-// default. Returns d for chaining.
-//
-// Per-field `bin:"sizePrefix=..."` tags still take precedence; UseBorsh
-// only changes the implied default. Other Borsh / bincode differences
-// (1-byte vs 4-byte enum discriminator) are not auto-translated — model
-// enums as uint8 (Borsh) or uint32 (bincode) on the Go side.
-func (d *Decoder) UseBorsh() *Decoder { d.defaultPrefix = prefixU32; return d }
-
 // NewDecoder returns a Decoder that reads from b. The caller retains
 // ownership of b and must not mutate it for the lifetime of the Decoder
 // or of any slice returned by ReadBytes.

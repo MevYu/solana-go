@@ -23,10 +23,10 @@ func (c *Client) SimulateTransaction(ctx context.Context, tx *solana.Transaction
 		c0.Encoding = solana.EncodingBase64
 	}
 
-	slot, v, err := jsonrpc.CallContextValue[SimulateResult](ctx, c.Client, "simulateTransaction", encoded, c0)
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[SimulateResult]](ctx, c.Client, "simulateTransaction", encoded, c0)
 	if err != nil {
 		return nil, err
 	}
-	v.Slot = slot
-	return &v, nil
+	resp.Value.Slot = resp.Context.Slot
+	return &resp.Value, nil
 }
