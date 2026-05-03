@@ -4,8 +4,8 @@ import (
 	"context"
 
 	solana "github.com/MevYu/solana-go"
-	"github.com/MevYu/solana-go/rpc"
 	"github.com/MevYu/solana-go/jsonrpc"
+	"github.com/MevYu/solana-go/rpc"
 )
 
 // ProgramNotification is a single update delivered to a
@@ -155,7 +155,7 @@ func (c *Client) BlockSubscribe(ctx context.Context, filter BlockFilter, cfg ...
 
 	c0 := *rpc.FirstOrZero(cfg)
 	if c0.Encoding == "" {
-		c0.Encoding = rpc.EncodingBase64
+		c0.Encoding = solana.EncodingBase64
 	}
 	if c0.TransactionDetails == "" {
 		c0.TransactionDetails = "full"

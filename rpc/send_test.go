@@ -8,9 +8,9 @@ import (
 	"time"
 
 	solana "github.com/MevYu/solana-go"
-	"github.com/MevYu/solana-go/rpc"
-	"github.com/MevYu/solana-go/jsonrpc"
 	"github.com/MevYu/solana-go/internal/testutil"
+	"github.com/MevYu/solana-go/jsonrpc"
+	"github.com/MevYu/solana-go/rpc"
 )
 
 // multiMethodHandler dispatches JSON-RPC method calls to a map of

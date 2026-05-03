@@ -28,7 +28,7 @@ func (c *Client) GetAddressLookupTable(ctx context.Context, address solana.Publi
 	infoCfg := AccountInfoCfg{
 		Commitment:     opt.Commitment,
 		MinContextSlot: opt.MinContextSlot,
-		Encoding:       EncodingBase64,
+		Encoding:       solana.EncodingBase64,
 	}
 	slot, acc, err := jsonrpc.CallContextValue[*solana.AccountInfo](ctx, c.Client, "getAccountInfo", address.String(), infoCfg)
 	if err != nil {

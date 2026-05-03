@@ -20,17 +20,6 @@ const (
 	CommitmentFinalized CommitmentLevel = "finalized"
 )
 
-// EnumRpcCommitment is an alias for CommitmentLevel, matching the
-// go-solana naming convention.
-type EnumRpcCommitment = CommitmentLevel
-
-// go-solana-compatible commitment constants.
-const (
-	RpcCommitmentProcessed = CommitmentProcessed
-	RpcCommitmentConfirmed = CommitmentConfirmed
-	RpcCommitmentFinalized = CommitmentFinalized
-)
-
 // Encoding is the on-wire encoding for binary payloads in RPC
 // responses that carry account data or transaction data.
 type Encoding string
@@ -59,32 +48,21 @@ const (
 	EncodingBase64ZSTD Encoding = "base64+zstd"
 )
 
-// EncodingEnum is an alias for Encoding, matching the go-solana
-// naming convention.
-type EncodingEnum = Encoding
-
-// go-solana-compatible encoding constants.
-const (
-	EncodingBase64Zstd Encoding = EncodingBase64ZSTD
-	EncodingJsonParsed Encoding = EncodingJSONParsed
-	EncodingJson       Encoding = EncodingJSON
-)
-
-// EnumTxDetailLevel is the transaction detail level for
+// TxDetailLevel is the transaction detail level for
 // getBlock-style calls.
-type EnumTxDetailLevel string
+type TxDetailLevel string
 
 const (
-	TxDetailLevelNone       EnumTxDetailLevel = "none"
-	TxDetailLevelFull       EnumTxDetailLevel = "full"
-	TxDetailLevelAccounts   EnumTxDetailLevel = "accounts"
-	TxDetailLevelSignatures EnumTxDetailLevel = "signatures"
+	TxDetailLevelNone       TxDetailLevel = "none"
+	TxDetailLevelFull       TxDetailLevel = "full"
+	TxDetailLevelAccounts   TxDetailLevel = "accounts"
+	TxDetailLevelSignatures TxDetailLevel = "signatures"
 )
 
-// EnumCirculateFilter filters accounts by circulation status.
-type EnumCirculateFilter string
+// CirculateFilter filters accounts by circulation status.
+type CirculateFilter string
 
 const (
-	FilterCirculating    EnumCirculateFilter = "circulating"
-	FilterNonCirculating EnumCirculateFilter = "nonCirculating"
+	FilterCirculating    CirculateFilter = "circulating"
+	FilterNonCirculating CirculateFilter = "nonCirculating"
 )

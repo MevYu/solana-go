@@ -177,12 +177,12 @@ func (c *Client) readLoop() {
 
 func (c *Client) dispatchIncoming(msg []byte) {
 	var envelope struct {
-		ID     *uint64     `json:"id"`
-		Method string      `json:"method"`
+		ID     *uint64         `json:"id"`
+		Method string          `json:"method"`
 		Result jsonrpc.RawJSON `json:"result"`
 		Error  *jsonrpc.Error  `json:"error"`
 		Params *struct {
-			Subscription uint64      `json:"subscription"`
+			Subscription uint64          `json:"subscription"`
 			Result       jsonrpc.RawJSON `json:"result"`
 		} `json:"params"`
 	}
