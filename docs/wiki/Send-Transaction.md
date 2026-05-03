@@ -45,7 +45,7 @@ for that.
 
 ```go
 sig, err := c.SendTransaction(ctx, tx, rpc.SendTxCfg{
-    PreflightCommitment: rpc.CommitmentConfirmed,
+    PreflightCommitment: solana.CommitmentConfirmed,
 })
 if err != nil {
     // inspect err with errors.As(*jsonrpc.ErrRPC) or the Is* classifiers

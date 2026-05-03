@@ -49,7 +49,7 @@ defer ws.Close()
 
 wallet, _ := solana.PublicKeyFromBase58("...")
 sub, err := ws.AccountSubscribe(ctx, wallet,
-    rpc.WithCommitment(rpc.CommitmentConfirmed),
+    rpc.WithCommitment(solana.CommitmentConfirmed),
 )
 if err != nil {
     return err

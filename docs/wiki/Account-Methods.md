@@ -101,7 +101,7 @@ Same as `GetAccountInfo`: `WithCommitment`, `WithEncoding`,
 addrs := []solana.PublicKey{a, b, c}
 res, err := c.GetMultipleAccounts(ctx, addrs,
     rpc.WithEncoding(solana.EncodingBase64),
-    rpc.WithCommitment(rpc.CommitmentConfirmed),
+    rpc.WithCommitment(solana.CommitmentConfirmed),
 )
 if err != nil {
     return err
