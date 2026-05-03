@@ -50,10 +50,18 @@ type decodeOps struct {
 	size uintptr
 }
 
+// decodeOpsCache memoises compiled plans keyed by reflect.Type so each
+// type pays the reflective compile cost (~2.7us / 4KB) only once.
 var decodeOpsCache sync.Map // map[reflect.Type]*decodeOps
 
+// Cached so compilation can test "*T implements Unmarshaler" without
+// allocating a fresh interface type descriptor per type.
 var unmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 
+// decodeOpsFor returns a compiled plan for t, compiling on first use.
+// Plans built with non-default tag options bypass the cache because
+// those options only matter for top-level slice/string leaves and
+// would otherwise pollute the per-type entry.
 func decodeOpsFor(t reflect.Type, opts tagOpts) (*decodeOps, error) {
 	if opts == (tagOpts{}) {
 		if p, ok := decodeOpsCache.Load(t); ok {
@@ -332,6 +340,7 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		}
 		*(*string)(ptr) = string(b)
 	case opPointer:
+		// Rust Option<T>: 1-byte tag, then payload only when Some.
 		tag, err := d.ReadUint8()
 		if err != nil {
 			return err
@@ -341,6 +350,7 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		case 0:
 			rv.SetZero()
 		case 1:
+			// reflect.New so the GC tracks the allocation as the right type.
 			fresh := reflect.New(o.elemType)
 			rv.Set(fresh)
 			if err := d.execDecodeOps(o.sub, unsafe.Pointer(fresh.Pointer())); err != nil {
