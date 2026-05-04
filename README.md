@@ -22,7 +22,7 @@ go get github.com/MevYu/solana-go
 | `…/ws` | WebSocket subscriptions: `ws.Client`, `AccountSubscribe`, `LogsSubscribe`, … |
 | `…/encoding` | Solana wire format: `shortvec`, bincode, Borsh, chained `Encoder`/`Reader` |
 | `…/helpers` | Pure-logic helpers: `PriorityFeeStatsFromFees` |
-| `…/tx` | Fluent transaction builder |
+| `…/txbuilder` | Fluent transaction builder |
 | `…/programs/system` | System Program instructions (transfer, create-account, nonces, …) |
 | `…/programs/token` | SPL Token instructions + state decoding |
 | `…/programs/token2022` | Token-2022 instructions (incl. extension builders) + state decoding |
@@ -101,11 +101,11 @@ no-op.
 
 ```go
 import (
-    "github.com/MevYu/solana-go/tx"
+    "github.com/MevYu/solana-go/txbuilder"
     "github.com/MevYu/solana-go/programs/system"
 )
 
-t, err := tx.NewBuilder().
+t, err := txbuilder.NewBuilder().
     SetFeePayer(payer.PublicKey()).
     SetRecentBlockhash(blockhash).
     AddInstruction(system.NewTransfer(payer.PublicKey(), recipient, lamports)).
@@ -263,7 +263,7 @@ resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[uint64]](
 | `jsonrpc.Client`: JSON-RPC 2.0, pluggable codec, exponential-backoff retry, classifiers | ✅ |
 | ~50 typed RPC methods on `*rpc.Client` | ✅ |
 | WebSocket subscriptions (8 subscription types) on `*ws.Client` | ✅ |
-| Fluent transaction builder (`tx.Builder`) | ✅ |
+| Fluent transaction builder (`txbuilder.Builder`) | ✅ |
 | `SendAndConfirmTransaction` with blockhash refresh | ✅ |
 | `DecodeTransactionError` typed error decoding for `SimulateTransaction` / `GetTransaction` | ✅ |
 | `PriorityFeeStatsFromFees` percentile statistics | ✅ |

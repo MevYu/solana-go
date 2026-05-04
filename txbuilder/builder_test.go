@@ -1,4 +1,4 @@
-package tx_test
+package txbuilder_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	solana "github.com/MevYu/solana-go"
 	"github.com/MevYu/solana-go/programs/system"
-	"github.com/MevYu/solana-go/tx"
+	"github.com/MevYu/solana-go/txbuilder"
 )
 
 var testBlockhash = solana.Hash{1, 2, 3}
@@ -60,7 +60,7 @@ func TestBuilder_Build_Happy(t *testing.T) {
 	recipient := solana.PublicKey{9, 9, 9}
 	signer := &localSigner{pub: pub, priv: priv}
 
-	txn, err := tx.NewBuilder().
+	txn, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, recipient, 1_000_000)).
@@ -79,7 +79,7 @@ func TestBuilder_Build_Happy(t *testing.T) {
 
 func TestBuilder_Build_NoFeePayer(t *testing.T) {
 	pub, _ := newKeypair(t)
-	_, err := tx.NewBuilder().
+	_, err := txbuilder.NewBuilder().
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, solana.PublicKey{9}, 1)).
 		Build(context.Background())
@@ -90,7 +90,7 @@ func TestBuilder_Build_NoFeePayer(t *testing.T) {
 
 func TestBuilder_Build_NoBlockhash(t *testing.T) {
 	pub, _ := newKeypair(t)
-	_, err := tx.NewBuilder().
+	_, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		Add(newTransfer(pub, solana.PublicKey{9}, 1)).
 		Build(context.Background())
@@ -101,7 +101,7 @@ func TestBuilder_Build_NoBlockhash(t *testing.T) {
 
 func TestBuilder_Build_NoInstructions(t *testing.T) {
 	pub, _ := newKeypair(t)
-	_, err := tx.NewBuilder().
+	_, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Build(context.Background())
@@ -112,7 +112,7 @@ func TestBuilder_Build_NoInstructions(t *testing.T) {
 
 func TestBuilder_Build_NilInstruction(t *testing.T) {
 	pub, _ := newKeypair(t)
-	_, err := tx.NewBuilder().
+	_, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(nil).
@@ -125,7 +125,7 @@ func TestBuilder_Build_NilInstruction(t *testing.T) {
 func TestBuilder_Build_SignerError(t *testing.T) {
 	pub, _ := newKeypair(t)
 	wantErr := errors.New("signing failed")
-	_, err := tx.NewBuilder().
+	_, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, solana.PublicKey{9}, 1)).
@@ -141,7 +141,7 @@ func TestBuilder_Build_SignerError(t *testing.T) {
 
 func TestBuilder_Build_UnsignedWhenNoSigners(t *testing.T) {
 	pub, _ := newKeypair(t)
-	txn, err := tx.NewBuilder().
+	txn, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, solana.PublicKey{9}, 1)).
@@ -158,7 +158,7 @@ func TestBuilder_Build_UnsignedWhenNoSigners(t *testing.T) {
 
 func TestBuilder_Build_MultipleInstructions(t *testing.T) {
 	pub, _ := newKeypair(t)
-	txn, err := tx.NewBuilder().
+	txn, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, solana.PublicKey{9}, 1)).
@@ -176,7 +176,7 @@ func TestBuilder_Build_ResultIsSerializable(t *testing.T) {
 	pub, priv := newKeypair(t)
 	signer := &localSigner{pub: pub, priv: priv}
 
-	txn, err := tx.NewBuilder().
+	txn, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, solana.PublicKey{9}, 1_000_000)).
@@ -201,7 +201,7 @@ func TestBuilder_Build_ResultIsSerializable(t *testing.T) {
 // --- SetComputeUnitLimit / SetComputeUnitPrice ---
 
 func TestSetComputeUnitLimit_Encoding(t *testing.T) {
-	ix := tx.SetComputeUnitLimit(200_000)
+	ix := txbuilder.SetComputeUnitLimit(200_000)
 	data, err := ix.Data()
 	if err != nil {
 		t.Fatalf("Data: %v", err)
@@ -215,7 +215,7 @@ func TestSetComputeUnitLimit_Encoding(t *testing.T) {
 	if got := binary.LittleEndian.Uint32(data[1:]); got != 200_000 {
 		t.Errorf("units: got %d, want 200000", got)
 	}
-	if ix.ProgramID() != tx.ComputeBudgetProgramID {
+	if ix.ProgramID() != txbuilder.ComputeBudgetProgramID {
 		t.Error("program id mismatch")
 	}
 	if ix.Accounts() != nil {
@@ -224,7 +224,7 @@ func TestSetComputeUnitLimit_Encoding(t *testing.T) {
 }
 
 func TestSetComputeUnitPrice_Encoding(t *testing.T) {
-	ix := tx.SetComputeUnitPrice(5_000)
+	ix := txbuilder.SetComputeUnitPrice(5_000)
 	data, err := ix.Data()
 	if err != nil {
 		t.Fatalf("Data: %v", err)
@@ -244,12 +244,12 @@ func TestSetComputeUnitPrice_Encoding(t *testing.T) {
 
 func TestToMessageAddressTableLookup(t *testing.T) {
 	key := solana.PublicKey{99}
-	alt := tx.AddressLookupTable{
+	alt := txbuilder.AddressLookupTable{
 		AccountKey:      key,
 		WritableIndexes: []uint8{0, 2},
 		ReadonlyIndexes: []uint8{1},
 	}
-	got := tx.ToMessageAddressTableLookup(alt)
+	got := txbuilder.ToMessageAddressTableLookup(alt)
 	if got.AccountKey != key {
 		t.Error("AccountKey mismatch")
 	}
@@ -270,11 +270,11 @@ func TestBuilder_BuildV0_Happy(t *testing.T) {
 
 	// One ALT entry: the recipient — should be routed through the table.
 	tableKey := solana.PublicKey{0xAB}
-	tables := []tx.LoadedAddressLookupTable{
+	tables := []txbuilder.LoadedAddressLookupTable{
 		{AccountKey: tableKey, Addresses: []solana.PublicKey{recipient}},
 	}
 
-	txn, err := tx.NewBuilder().
+	txn, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, recipient, 1_000_000)).
@@ -298,7 +298,7 @@ func TestBuilder_BuildV0_NoTables(t *testing.T) {
 	pub, priv := newKeypair(t)
 	signer := &localSigner{pub: pub, priv: priv}
 
-	txn, err := tx.NewBuilder().
+	txn, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, solana.PublicKey{9}, 1)).
@@ -320,11 +320,11 @@ func TestBuilder_BuildV0_SignerNotMovedToTable(t *testing.T) {
 	signer := &localSigner{pub: pub, priv: priv}
 
 	// Payer is in the table — it must still be static (signers can't be in ALT).
-	tables := []tx.LoadedAddressLookupTable{
+	tables := []txbuilder.LoadedAddressLookupTable{
 		{AccountKey: solana.PublicKey{0xAB}, Addresses: []solana.PublicKey{pub}},
 	}
 
-	txn, err := tx.NewBuilder().
+	txn, err := txbuilder.NewBuilder().
 		SetFeePayer(pub).
 		SetRecentBlockhash(testBlockhash).
 		Add(newTransfer(pub, solana.PublicKey{9}, 1)).

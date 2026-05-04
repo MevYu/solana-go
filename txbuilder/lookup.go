@@ -1,4 +1,4 @@
-package tx
+package txbuilder
 
 import (
 	"context"
