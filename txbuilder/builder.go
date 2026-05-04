@@ -1,17 +1,17 @@
-// Package tx provides a fluent transaction builder for Solana.
+// Package txbuilder provides a fluent transaction builder for Solana.
 // It assembles Instructions into a signed Transaction without requiring
 // any network access: blockhash and signers are provided by the caller.
 //
 // Example:
 //
-//	tx, err := tx.NewBuilder().
+//	tx, err := txbuilder.NewBuilder().
 //	    SetFeePayer(payer.PublicKey()).
 //	    Add(systemProgram.Transfer(...)).
 //	    Add(memoProgram.Log("hello")).
 //	    SetRecentBlockhash(bh).
 //	    Sign(ctx, payer).
 //	    Build()
-package tx
+package txbuilder
 
 import (
 	"context"
