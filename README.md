@@ -80,7 +80,7 @@ fmt.Printf("balance: %d lamports at slot %d\n", res.Value, res.Slot)
 
 // Get account info — typed config struct, no functional options
 info, err := c.GetAccountInfo(ctx, pk, rpc.AccountInfoCfg{
-    Commitment: rpc.CommitmentConfirmed,
+    Commitment: solana.CommitmentConfirmed,
     Encoding:   solana.EncodingBase64,
 })
 
@@ -133,7 +133,7 @@ sig, err := c.SendAndConfirmTransaction(ctx,
         }
         return t, nil
     },
-    rpc.WithSendCommitment(rpc.CommitmentConfirmed),
+    rpc.WithSendCommitment(solana.CommitmentConfirmed),
 )
 ```
 
@@ -193,7 +193,7 @@ if err != nil {
 defer wsc.Close()
 
 sub, err := wsc.AccountSubscribe(ctx, pk, rpc.CommitmentWithEncodingCfg{
-    Commitment: rpc.CommitmentConfirmed,
+    Commitment: solana.CommitmentConfirmed,
 })
 if err != nil {
     log.Fatal(err)
@@ -234,17 +234,19 @@ import (
 
 c := rpc.NewClient("https://api.mainnet-beta.solana.com", jsonrpc.Config{})
 
-// CallContext is promoted through the embedded *jsonrpc.Client.
-var balance uint64
-err := c.CallContext(ctx, &balance, "getBalance",
-    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-)
-
-// For {context, value} envelopes, use jsonrpc.CallContextValue[T]:
-slot, lamports, err := jsonrpc.CallContextValue[uint64](
+// CallContext is a free generic function — Go forbids type parameters
+// on methods. Pass the embedded *jsonrpc.Client as c.Client.
+balance, err := jsonrpc.CallContext[uint64](
     ctx, c.Client, "getBalance",
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
 )
+
+// For {context, value} envelopes, instantiate T as ContextValue[X]:
+resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[uint64]](
+    ctx, c.Client, "getBalance",
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+)
+// resp.Context.Slot, resp.Value
 ```
 
 ---
@@ -272,7 +274,7 @@ slot, lamports, err := jsonrpc.CallContextValue[uint64](
 ## Performance design
 
 - **Single-pass JSON decode** for all `{context, value}` responses via
-  `jsonrpc.CallContextValue[T]` — halves codec work on the hot path.
+  `jsonrpc.CallContext[ContextValue[T]]` — halves codec work on the hot path.
 - **Tagged public types** (`SimulateResult`, `LatestBlockhash`,
   `SupplyResult`, `GetTransactionResult`, WS notifications, …) decode
   straight from the wire — no internal wire-shape struct middleman.
