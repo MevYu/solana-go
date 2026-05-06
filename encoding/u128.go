@@ -265,31 +265,3 @@ func (d *Decoder) ReadU256() (U256, error) {
 	return *(*U256)(unsafe.Pointer(&b[0])), nil
 }
 
-// ----------------------------------------------------------------------------
-// Registry fast-path wiring
-// ----------------------------------------------------------------------------
-
-func init() {
-	// Hand-written fast paths for U128 / U256 / primitive numerics so the
-	// reflective Decode path never descends into their byte-array backing
-	// storage. The speedup over the generic [N]byte fallback is modest but
-	// consistent, and these registrations double as a sanity check that
-	// RegisterDecoder works for array-backed named types.
-	RegisterDecoder[U128](func(d *Decoder, p *U128) error {
-		b, err := d.ReadBytes(16)
-		if err != nil {
-			return err
-		}
-		*p = *(*U128)(unsafe.Pointer(&b[0]))
-		return nil
-	})
-	RegisterDecoder[U256](func(d *Decoder, p *U256) error {
-		b, err := d.ReadBytes(32)
-		if err != nil {
-			return err
-		}
-		*p = *(*U256)(unsafe.Pointer(&b[0]))
-		return nil
-	})
-}
-
