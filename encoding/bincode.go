@@ -136,11 +136,12 @@ func NewDecoder(b []byte) *Decoder {
 	return &Decoder{buf: b}
 }
 
-// DecodeTo is a one-shot reflection decoder: equivalent to
+// BinDecodeTo is a one-shot bincode reflection decoder: equivalent to
 // NewDecoder(data).DecodeTo(v). Use this when you have a struct tagged
 // with bin:"..." and just want to parse a buffer into it. For
 // fixed-shape, performance-sensitive decoders prefer the Reader API.
-func DecodeTo(data []byte, v any) error {
+// The Borsh counterpart is BorshDecodeTo.
+func BinDecodeTo(data []byte, v any) error {
 	return NewDecoder(data).DecodeTo(v)
 }
 

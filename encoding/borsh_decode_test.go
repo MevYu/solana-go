@@ -32,14 +32,14 @@ func TestBorshDecodeTo_StringUsesU32Prefix(t *testing.T) {
 	}
 }
 
-func TestDecodeTo_StillUsesU64Prefix(t *testing.T) {
+func TestBinDecodeTo_StillUsesU64Prefix(t *testing.T) {
 	// Bincode mode: same payload but u64 length.
 	data := New().U64(3).U32(10).U32(20).U32(30).Bytes()
 
 	type S struct{ Items []uint32 }
 	var s S
-	if err := DecodeTo(data, &s); err != nil {
-		t.Fatalf("DecodeTo: %v", err)
+	if err := BinDecodeTo(data, &s); err != nil {
+		t.Fatalf("BinDecodeTo: %v", err)
 	}
 	if len(s.Items) != 3 {
 		t.Errorf("expected 3 items, got %d", len(s.Items))

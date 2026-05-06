@@ -275,43 +275,6 @@ func (d *Decoder) ReadU256() (U256, error) {
 	return *(*U256)(unsafe.Pointer(&b[0])), nil
 }
 
-// WriteU128 appends u verbatim to the Borsh stream (Borsh u128 is the
-// same on-wire format as bincode: 16 little-endian bytes).
-func (e *BorshEncoder) WriteU128Raw(u U128) {
-	e.buf = append(e.buf, u[:]...)
-}
-
-// WriteU256 appends u verbatim to the Borsh stream. Borsh does not specify
-// a u256 type but this byte layout matches every Solana program in the wild
-// that serialises a 32-byte number (oracle prices, curve params, etc.).
-func (e *BorshEncoder) WriteU256(u U256) {
-	e.buf = append(e.buf, u[:]...)
-}
-
-// ReadU128Raw reads a 16-byte little-endian Borsh u128. The name is
-// suffixed "Raw" to coexist with the existing ReadU128 that returns two
-// separate uint64 words.
-func (d *BorshDecoder) ReadU128Raw() (U128, error) {
-	if err := d.need(16); err != nil {
-		return U128{}, err
-	}
-	var u U128
-	copy(u[:], d.buf[d.pos:d.pos+16])
-	d.pos += 16
-	return u, nil
-}
-
-// ReadU256 reads a 32-byte little-endian U256.
-func (d *BorshDecoder) ReadU256() (U256, error) {
-	if err := d.need(32); err != nil {
-		return U256{}, err
-	}
-	var u U256
-	copy(u[:], d.buf[d.pos:d.pos+32])
-	d.pos += 32
-	return u, nil
-}
-
 // ----------------------------------------------------------------------------
 // Registry fast-path wiring
 // ----------------------------------------------------------------------------
