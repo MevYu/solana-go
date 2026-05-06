@@ -305,7 +305,9 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		if err != nil {
 			return err
 		}
-		// Use reflect so the GC sees the named slice type, not just []byte.
+		// Allocate-and-copy (not alias d.buf) so the decoded struct can
+		// outlive the input buffer; reflect handles named slice types
+		// like `type Bytes []byte`.
 		rv := reflect.NewAt(o.sliceType, ptr).Elem()
 		out := reflect.MakeSlice(o.sliceType, int(n), int(n))
 		if n > 0 {
