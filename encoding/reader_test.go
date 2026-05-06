@@ -47,11 +47,11 @@ func TestReader_Pubkey(t *testing.T) {
 	}
 }
 
-func TestReader_Str(t *testing.T) {
-	data := New().Str("hello").Bytes()
+func TestReader_StrU64(t *testing.T) {
+	data := New().StrU64("hello").Bytes()
 	r := NewReader(data)
-	if got := r.Str(); got != "hello" {
-		t.Errorf("Str = %q", got)
+	if got := r.StrU64(); got != "hello" {
+		t.Errorf("StrU64 = %q", got)
 	}
 }
 
@@ -122,14 +122,3 @@ func TestReader_Skip(t *testing.T) {
 	}
 }
 
-func TestReader_FromDecoder(t *testing.T) {
-	data := New().U8(0xAA).U64(42).Bytes()
-	d := NewDecoder(data)
-	if _, err := d.ReadUint8(); err != nil {
-		t.Fatal(err)
-	}
-	r := FromDecoder(d)
-	if r.U64() != 42 {
-		t.Error("FromDecoder didn't share position")
-	}
-}

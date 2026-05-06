@@ -76,16 +76,13 @@ func (e *Encoder) Raw(b []byte) *Encoder { e.WriteBytes(b); return e }
 // Raw(d[:]) but the named method documents intent at the call site.
 func (e *Encoder) Discriminator(d [8]byte) *Encoder { e.WriteBytes(d[:]); return e }
 
-// Str writes a bincode string: u64 little-endian length, then UTF-8 bytes.
-func (e *Encoder) Str(s string) *Encoder {
+// StrU64 writes a bincode string: u64 little-endian length, then UTF-8 bytes.
+// For Borsh strings (u32 length) compose e.U32(uint32(len(s))).Raw([]byte(s)).
+func (e *Encoder) StrU64(s string) *Encoder {
 	e.WriteUint64(uint64(len(s)))
 	e.WriteBytes([]byte(s))
 	return e
 }
-
-// Shortvec writes a Solana compact-u16 (1-3 bytes). Used inside transaction
-// and message structures, not in instruction data.
-func (e *Encoder) Shortvec(v uint16) *Encoder { e.WriteShortvec(v); return e }
 
 // ─── Rust Option<T> ──────────────────────────────────────────────────────────
 //

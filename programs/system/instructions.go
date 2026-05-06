@@ -171,7 +171,7 @@ func NewCreateAccountWithSeed(from, newAccount, base solana.PublicKey, seed stri
 	data := encoding.NewEncoder(4 + solana.PublicKeySize + 8 + len(seed) + 8 + 8 + solana.PublicKeySize).
 		U32(tagCreateAccountWithSeed).
 		Raw(base[:]).
-		Str(seed).
+		StrU64(seed).
 		U64(lamports).
 		U64(space).
 		Raw(owner[:]).
@@ -202,7 +202,7 @@ func NewTransferWithSeed(from, base, to solana.PublicKey, lamports uint64, seed 
 		data: encoding.NewEncoder(4 + 8 + 8 + len(seed) + solana.PublicKeySize).
 			U32(tagTransferWithSeed).
 			U64(lamports).
-			Str(seed).
+			StrU64(seed).
 			Raw(programID[:]).
 			Bytes(),
 	}
