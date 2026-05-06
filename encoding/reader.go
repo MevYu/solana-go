@@ -1,5 +1,7 @@
 package encoding
 
+import "strconv"
+
 // Reader is a sticky-error wrapper around Decoder for chained, fluent
 // decoding of fixed-shape Solana wire data. Each accessor reads one
 // field; the first short-buffer (or invalid-shortvec) error is stored on
@@ -25,11 +27,6 @@ type Reader struct {
 
 // NewReader wraps b in a Reader. The bytes are not copied.
 func NewReader(b []byte) *Reader { return &Reader{d: NewDecoder(b)} }
-
-// FromDecoder returns a Reader sharing d's position. Useful when you've
-// already advanced d (e.g. read a discriminator) and want to switch to
-// the chained style for the rest.
-func FromDecoder(d *Decoder) *Reader { return &Reader{d: d} }
 
 // Decoder returns the underlying Decoder. Mutations through it are
 // visible to subsequent Reader calls.
@@ -74,29 +71,7 @@ type TrailingBytesError struct {
 }
 
 func (e *TrailingBytesError) Error() string {
-	return "solana/encoding: " + itoa(e.Remaining) + " trailing byte(s) after decode"
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
+	return "solana/encoding: " + strconv.Itoa(e.Remaining) + " trailing byte(s) after decode"
 }
 
 // ─── unsigned ────────────────────────────────────────────────────────────────
@@ -238,21 +213,9 @@ func (r *Reader) Skip(n int) {
 	}
 }
 
-// Shortvec reads a Solana compact-u16. Used for transaction and message
-// length prefixes, not in account state or instruction data.
-func (r *Reader) Shortvec() uint16 {
-	if r.err != nil {
-		return 0
-	}
-	v, err := r.d.ReadShortvec()
-	if err != nil {
-		r.err = err
-	}
-	return v
-}
-
-// Str reads a bincode string: u64 little-endian length, then UTF-8 bytes.
-func (r *Reader) Str() string {
+// StrU64 reads a bincode string: u64 little-endian length, then UTF-8 bytes.
+// For Borsh strings (u32 length) compose r.U32() + r.Bytes(int(n)).
+func (r *Reader) StrU64() string {
 	n := r.U64()
 	if r.err != nil {
 		return ""
