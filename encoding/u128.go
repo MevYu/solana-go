@@ -123,12 +123,7 @@ func (u *U128) UnmarshalText(b []byte) error {
 // MarshalJSON emits u as a JSON *string* decimal, so JavaScript consumers
 // that lose precision above 2^53 still receive the exact value.
 func (u U128) MarshalJSON() ([]byte, error) {
-	s := u.String()
-	out := make([]byte, 0, len(s)+2)
-	out = append(out, '"')
-	out = append(out, s...)
-	out = append(out, '"')
-	return out, nil
+	return strconv.AppendQuote(nil, u.String()), nil
 }
 
 // UnmarshalJSON accepts either a JSON string or a JSON number encoding a
@@ -225,12 +220,7 @@ func (u *U256) UnmarshalText(b []byte) error {
 
 // MarshalJSON emits u as a JSON string decimal. See U128.MarshalJSON.
 func (u U256) MarshalJSON() ([]byte, error) {
-	s := u.String()
-	out := make([]byte, 0, len(s)+2)
-	out = append(out, '"')
-	out = append(out, s...)
-	out = append(out, '"')
-	return out, nil
+	return strconv.AppendQuote(nil, u.String()), nil
 }
 
 // UnmarshalJSON accepts either a JSON string or a JSON number encoding a
