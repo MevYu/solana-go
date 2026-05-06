@@ -36,6 +36,15 @@ type Hash [HashSize]byte
 // keypair. It uses the same base58 textual form as PublicKey.
 type Signature [SignatureSize]byte
 
+// U128 / U256 are re-exports of the encoding primitives so callers can
+// write solana.U128 / solana.U256 in struct fields, matching the
+// PublicKey / Hash / Signature discoverability. All methods defined on
+// the underlying encoding types remain available.
+type (
+	U128 = encoding.U128
+	U256 = encoding.U256
+)
+
 // ---------------------------------------------------------------------
 // Constructors from raw bytes
 // ---------------------------------------------------------------------

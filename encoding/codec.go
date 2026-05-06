@@ -36,6 +36,27 @@ var registry sync.Map // map[reflect.Type]decoderFunc
 //
 // The wrapper handles the unsafe.Pointer → *T conversion so callers write
 // normal typed Go.
+//
+// When registration helps vs hurts, by type shape:
+//
+//   - Leaf [N]byte-backed named types (PublicKey, Hash, Signature, U128,
+//     U256, …): do NOT register. The reflective fast path emits opFixedBytes
+//     for them — a single ReadBytes(N) + memmove the compiler inlines through
+//     the op switch. opCallFunc dispatches through a function pointer that
+//     cannot inline, so leaf registration is 1.5–5% SLOWER under concurrent
+//     load (the gap widens with goroutine count due to BTB pressure).
+//
+//   - Large composite structs (10+ exported fields, account-shaped):
+//     registration CAN help. The reflective walker pays per-field op-dispatch
+//     cost; a hand-written closure that reads the whole struct in one shot
+//     amortises that to zero. Bench shows 5–15% speedup on a ~30-field AMM
+//     pool struct (see poolstate_decode_bench_test.go for methodology).
+//     Whether the win materialises depends on the field-count vs decode-cost
+//     ratio — bench before committing.
+//
+//   - Custom wire formats / layout transformations / third-party types
+//     that can't implement Unmarshaler / post-decode validation:
+//     register without question — no other path expresses these.
 func RegisterDecoder[T any](fn func(*Decoder, *T) error) {
 	var zero T
 	t := reflect.TypeOf(zero)
