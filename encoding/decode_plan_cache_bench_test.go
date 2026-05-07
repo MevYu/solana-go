@@ -8,13 +8,13 @@ import (
 
 func BenchmarkDecodeOps_CacheHit(b *testing.B) {
 	t := reflect.TypeOf(bigRec{})
-	if _, err := decodeOpsFor(t, tagOpts{}); err != nil {
+	if _, err := decodePlanFor(t, tagOpts{}); err != nil {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := decodeOpsFor(t, tagOpts{}); err != nil {
+		if _, err := decodePlanFor(t, tagOpts{}); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -25,7 +25,7 @@ func BenchmarkDecodeOps_NoCache(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := compileDecodeOps(t, tagOpts{}); err != nil {
+		if _, err := compileDecodePlan(t, tagOpts{}); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -53,13 +53,13 @@ func BenchmarkDecodeFast_BigRec_NoCache(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p, err := compileDecodeOps(t, tagOpts{})
+		p, err := compileDecodePlan(t, tagOpts{})
 		if err != nil {
 			b.Fatal(err)
 		}
 		var out bigRec
 		d := NewDecoder(data)
-		if err := d.execDecodeOps(p, unsafe.Pointer(&out)); err != nil {
+		if err := d.execDecodePlan(p, unsafe.Pointer(&out)); err != nil {
 			b.Fatal(err)
 		}
 	}

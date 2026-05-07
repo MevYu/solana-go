@@ -8,10 +8,10 @@ package encoding
 // fixed-shape structures:
 //
 //	data := encoding.NewEncoder(48).
-//	    Discriminator(swapDisc).
+//	    U8(swapDisc).
 //	    U64(amountIn).
 //	    U64(amountOutMin).
-//	    U128(sqrtPxLimit).
+//	    U128c(sqrtPxLimit).
 //	    Raw(userPubkey[:]).
 //	    Bool(aToB).
 //	    Bytes()
@@ -72,10 +72,6 @@ func (e *Encoder) Bool(v bool) *Encoder {
 // such as pubkeys (caller passes pk[:]) or pre-encoded discriminators.
 func (e *Encoder) Raw(b []byte) *Encoder { e.WriteBytes(b); return e }
 
-// Discriminator is an 8-byte Anchor instruction discriminator. Identical to
-// Raw(d[:]) but the named method documents intent at the call site.
-func (e *Encoder) Discriminator(d [8]byte) *Encoder { e.WriteBytes(d[:]); return e }
-
 // StrU64 writes a bincode string: u64 little-endian length, then UTF-8 bytes.
 // For Borsh strings (u32 length) compose e.U32(uint32(len(s))).Raw([]byte(s)).
 func (e *Encoder) StrU64(s string) *Encoder {
@@ -119,14 +115,6 @@ func (e *Encoder) OptI64(v *int64) *Encoder {
 		return e.U8(0)
 	}
 	return e.U8(1).I64(*v)
-}
-
-// OptU128 writes Option<u128>.
-func (e *Encoder) OptU128(v *U128) *Encoder {
-	if v == nil {
-		return e.U8(0)
-	}
-	return e.U8(1).U128c(*v)
 }
 
 // OptBool writes Option<bool>.
