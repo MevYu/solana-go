@@ -111,11 +111,9 @@ type Decoder struct {
 	buf []byte
 	pos int
 
-	// defaultPrefix overrides the implied length prefix for Vec<T> /
-	// string fields whose `bin:"..."` tag does not pick one explicitly.
-	// Zero value (= prefixDefault) preserves the bincode u64 default;
-	// setting it to prefixU32 switches the same codec into Borsh mode.
-	defaultPrefix sizePrefix
+	// borsh switches the reflective decoder's slice / string length prefix
+	// from bincode's u64 to Borsh's u32. Set via UseBorsh.
+	borsh bool
 }
 
 // NewDecoder returns a Decoder that reads from b. The caller retains
@@ -126,10 +124,9 @@ func NewDecoder(b []byte) *Decoder {
 }
 
 // BinDecodeTo is a one-shot bincode reflection decoder: equivalent to
-// NewDecoder(data).DecodeTo(v). Use this when you have a struct tagged
-// with bin:"..." and just want to parse a buffer into it. For
-// fixed-shape, performance-sensitive decoders prefer the Reader API.
-// The Borsh counterpart is BorshDecodeTo.
+// NewDecoder(data).DecodeTo(v). Use this when you just want to parse a
+// buffer into a struct. For fixed-shape, performance-sensitive decoders
+// prefer the Reader API. The Borsh counterpart is BorshDecodeTo.
 func BinDecodeTo(data []byte, v any) error {
 	return NewDecoder(data).DecodeTo(v)
 }

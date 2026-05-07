@@ -332,12 +332,6 @@ type nestedStruct struct {
 	Inner primStruct
 }
 
-type skipStruct struct {
-	Keep  uint8
-	Skip  uint8 `bin:"-"`
-	Keep2 uint16
-}
-
 type primSliceStruct struct {
 	Items []uint32
 }
@@ -367,25 +361,6 @@ func TestDecodeNestedStruct(t *testing.T) {
 	}
 	if got.Outer != 42 || got.Inner != inner {
 		t.Fatalf("nested mismatch: %+v", got)
-	}
-}
-
-// `bin:"-"` skips the field entirely; the cursor must not advance for it.
-func TestDecodeSkipTag(t *testing.T) {
-	enc := encoding.NewEncoder(8)
-	enc.WriteUint8(1)
-	enc.WriteUint16(500)
-
-	d := encoding.NewBinDecoder(enc.Bytes())
-	var got skipStruct
-	if err := d.DecodeTo(&got); err != nil {
-		t.Fatalf("Decode: %v", err)
-	}
-	if got.Keep != 1 || got.Keep2 != 500 || got.Skip != 0 {
-		t.Fatalf("skip-tag: %+v", got)
-	}
-	if d.Remaining() != 0 {
-		t.Errorf("remaining = %d", d.Remaining())
 	}
 }
 

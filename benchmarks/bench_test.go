@@ -6,10 +6,9 @@ import (
 	"github.com/MevYu/solana-go/jsonrpc"
 )
 
-// Target structs are intentionally kept minimal: they capture the
-// field shapes a typed client wrapper would eventually expose, so
-// decode cost is measured against realistic Go receivers rather
-// than into map[string]any.
+// Target structs are intentionally minimal — they capture the field
+// shapes a typed client wrapper would expose, so decode cost is
+// measured against realistic Go receivers rather than map[string]any.
 
 type accountInfoResult struct {
 	Context struct {
@@ -76,10 +75,6 @@ type blockResult struct {
 		Version     any                `json:"version"`
 	} `json:"transactions"`
 }
-
-// ---------------------------------------------------------------------
-// Phase A decode benchmarks
-// ---------------------------------------------------------------------
 
 func BenchmarkGetAccountInfo_Decode(b *testing.B) {
 	codec := jsonrpc.GoJSONCodec()

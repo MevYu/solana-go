@@ -32,7 +32,6 @@ type op struct {
 	kind      opKind
 	offset    uintptr
 	count     uint32
-	prefix    sizePrefix
 	elemSize  uintptr
 	sliceType reflect.Type
 	elemType  reflect.Type
@@ -51,36 +50,29 @@ type decodePlan struct {
 var decodePlanCache sync.Map // map[reflect.Type]*decodePlan
 
 // decodePlanFor returns a compiled plan for t, compiling on first use.
-// Plans built with non-default tag options bypass the cache because
-// those options only matter for top-level slice/string leaves and
-// would otherwise pollute the per-type entry.
-func decodePlanFor(t reflect.Type, opts tagOpts) (*decodePlan, error) {
-	if opts == (tagOpts{}) {
-		if p, ok := decodePlanCache.Load(t); ok {
-			return p.(*decodePlan), nil
-		}
+func decodePlanFor(t reflect.Type) (*decodePlan, error) {
+	if p, ok := decodePlanCache.Load(t); ok {
+		return p.(*decodePlan), nil
 	}
-	p, err := compileDecodePlan(t, opts)
+	p, err := compileDecodePlan(t)
 	if err != nil {
 		return nil, err
 	}
-	if opts == (tagOpts{}) {
-		if existing, loaded := decodePlanCache.LoadOrStore(t, p); loaded {
-			return existing.(*decodePlan), nil
-		}
+	if existing, loaded := decodePlanCache.LoadOrStore(t, p); loaded {
+		return existing.(*decodePlan), nil
 	}
 	return p, nil
 }
 
-func compileDecodePlan(t reflect.Type, opts tagOpts) (*decodePlan, error) {
+func compileDecodePlan(t reflect.Type) (*decodePlan, error) {
 	p := &decodePlan{typ: t, size: t.Size()}
-	if err := emitValue(p, t, 0, opts); err != nil {
+	if err := emitValue(p, t, 0); err != nil {
 		return nil, err
 	}
 	return p, nil
 }
 
-func emitValue(p *decodePlan, t reflect.Type, off uintptr, opts tagOpts) error {
+func emitValue(p *decodePlan, t reflect.Type, off uintptr) error {
 	if reflect.PointerTo(t).Implements(unmarshalerReflectType()) {
 		p.ops = append(p.ops, op{kind: opCallIface, offset: off, ifaceType: t})
 		return nil
@@ -111,7 +103,7 @@ func emitValue(p *decodePlan, t reflect.Type, off uintptr, opts tagOpts) error {
 			p.ops = append(p.ops, op{kind: opFixedBytes, offset: off, count: uint32(t.Len())})
 			return nil
 		}
-		sub, err := compileDecodePlan(t.Elem(), tagOpts{})
+		sub, err := compileDecodePlan(t.Elem())
 		if err != nil {
 			return err
 		}
@@ -129,19 +121,17 @@ func emitValue(p *decodePlan, t reflect.Type, off uintptr, opts tagOpts) error {
 			p.ops = append(p.ops, op{
 				kind:      opByteSlice,
 				offset:    off,
-				prefix:    opts.sizePrefix,
 				sliceType: t,
 			})
 			return nil
 		}
-		sub, err := compileDecodePlan(t.Elem(), tagOpts{})
+		sub, err := compileDecodePlan(t.Elem())
 		if err != nil {
 			return err
 		}
 		p.ops = append(p.ops, op{
 			kind:      opSlice,
 			offset:    off,
-			prefix:    opts.sizePrefix,
 			elemSize:  t.Elem().Size(),
 			sliceType: t,
 			elemType:  t.Elem(),
@@ -149,10 +139,10 @@ func emitValue(p *decodePlan, t reflect.Type, off uintptr, opts tagOpts) error {
 		})
 
 	case reflect.String:
-		p.ops = append(p.ops, op{kind: opString, offset: off, prefix: opts.sizePrefix})
+		p.ops = append(p.ops, op{kind: opString, offset: off})
 
 	case reflect.Pointer:
-		sub, err := compileDecodePlan(t.Elem(), tagOpts{})
+		sub, err := compileDecodePlan(t.Elem())
 		if err != nil {
 			return err
 		}
@@ -170,11 +160,7 @@ func emitValue(p *decodePlan, t reflect.Type, off uintptr, opts tagOpts) error {
 			if !f.IsExported() {
 				continue
 			}
-			fopts := parseTag(f.Tag.Get("bin"))
-			if fopts.skip {
-				continue
-			}
-			if err := emitValue(p, f.Type, off+f.Offset, fopts); err != nil {
+			if err := emitValue(p, f.Type, off+f.Offset); err != nil {
 				return fmt.Errorf("%s.%s: %w", t.Name(), f.Name, err)
 			}
 		}
@@ -273,7 +259,7 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 			}
 		}
 	case opByteSlice:
-		n, err := d.readLen(o.prefix)
+		n, err := d.readLen()
 		if err != nil {
 			return err
 		}
@@ -291,7 +277,7 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		}
 		rv.Set(out)
 	case opSlice:
-		n, err := d.readLen(o.prefix)
+		n, err := d.readLen()
 		if err != nil {
 			return err
 		}
@@ -308,7 +294,7 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 			}
 		}
 	case opString:
-		n, err := d.readLen(o.prefix)
+		n, err := d.readLen()
 		if err != nil {
 			return err
 		}
@@ -355,7 +341,7 @@ func (d *Decoder) DecodeFast(v any) error {
 		return fmt.Errorf("encoding: DecodeFast requires a non-nil pointer, got %T", v)
 	}
 	t := rv.Type().Elem()
-	p, err := decodePlanFor(t, tagOpts{})
+	p, err := decodePlanFor(t)
 	if err != nil {
 		return err
 	}
