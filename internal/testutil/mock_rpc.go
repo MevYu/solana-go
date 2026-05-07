@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/MevYu/solana-go/rpc"
 	"github.com/MevYu/solana-go/jsonrpc"
+	"github.com/MevYu/solana-go/rpc"
 )
 
 // RPCHandler is a function that handles a single JSON-RPC method call

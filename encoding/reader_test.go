@@ -58,7 +58,7 @@ func TestReader_StrU64(t *testing.T) {
 func TestReader_ShortBuffer_StickyError(t *testing.T) {
 	data := []byte{0x01, 0x02} // only 2 bytes
 	r := NewReader(data)
-	r.U8() // ok, consumes 1
+	r.U8()  // ok, consumes 1
 	r.U64() // requires 8, fails
 	r.U64() // should be no-op (already errored)
 	r.U32() // same
@@ -121,4 +121,3 @@ func TestReader_Skip(t *testing.T) {
 		t.Error("Skip didn't advance")
 	}
 }
-

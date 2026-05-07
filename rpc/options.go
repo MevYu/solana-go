@@ -170,17 +170,13 @@ func (c AccountInfoCfg) MarshalJSON() ([]byte, error) {
 	return marshalJSON(alias(c))
 }
 
-// firstOrZero returns a pointer to opts[0] when non-empty, otherwise
-// a pointer to a zero value of T. Useful in methods that take a
-// variadic config so the caller can omit the argument entirely.
-func firstOrZero[T any](opts []T) *T {
+// FirstOrZero returns a pointer to opts[0] when non-empty, otherwise a
+// pointer to a zero value of T. Used by methods that take a variadic
+// config so the caller can omit the argument entirely.
+func FirstOrZero[T any](opts []T) *T {
 	if len(opts) == 0 {
 		var z T
 		return &z
 	}
 	return &opts[0]
 }
-
-// FirstOrZero is the exported form of firstOrZero, used by callers
-// that build their own request body (helpers, third-party wrappers).
-func FirstOrZero[T any](opts []T) *T { return firstOrZero(opts) }

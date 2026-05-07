@@ -30,7 +30,7 @@ func TestU128RoundTrip(t *testing.T) {
 	if got := len(enc.Bytes()); got != 16 {
 		t.Fatalf("encoded length %d, want 16", got)
 	}
-	dec := encoding.NewBinDecoder(enc.Bytes())
+	dec := encoding.NewDecoder(enc.Bytes())
 	back, err := dec.ReadU128()
 	if err != nil {
 		t.Fatalf("ReadU128: %v", err)
@@ -85,7 +85,7 @@ func TestU256RoundTrip(t *testing.T) {
 	}
 	enc := encoding.NewEncoder(32)
 	enc.WriteU256(u)
-	dec := encoding.NewBinDecoder(enc.Bytes())
+	dec := encoding.NewDecoder(enc.Bytes())
 	back, err := dec.ReadU256()
 	if err != nil {
 		t.Fatalf("ReadU256: %v", err)
@@ -129,7 +129,7 @@ func TestDecodePrimStruct(t *testing.T) {
 	enc.WriteInt32(-1)
 	enc.WriteUint8(1)
 	var got primStruct
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	want := primStruct{0xab, 0xcdef, 0x12345678, 0x1122334455667788, -1, true}
@@ -156,7 +156,7 @@ func TestDecodeU128Field(t *testing.T) {
 	enc.WriteU128(lo)
 	enc.WriteU256(huge)
 	var got withU128
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if got.Flag != 7 || got.Big != lo || got.Huge != huge {
@@ -181,7 +181,7 @@ func TestDecodeOptionSome(t *testing.T) {
 	enc.WriteUint64(0xdeadbeef)
 	enc.WriteUint16(7)
 	var got withOption
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if got.Header != 42 || got.Inner == nil || got.Inner.X != 0xdeadbeef || got.Inner.Y != 7 {
@@ -194,7 +194,7 @@ func TestDecodeOptionNone(t *testing.T) {
 	enc.WriteUint32(99)
 	enc.WriteUint8(0) // None
 	var got withOption
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if got.Header != 99 || got.Inner != nil {
@@ -216,7 +216,7 @@ func TestDecodeByteSlice(t *testing.T) {
 	enc.WriteBytes(body)
 	enc.WriteUint16(0xbeef)
 	var got withByteSlice
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if got.Len != 0xaa || string(got.Body) != string(body) || got.Tail != 0xbeef {
@@ -230,8 +230,8 @@ type elem struct {
 }
 
 type withElemSlice struct {
-	Count uint8
-	Items []elem
+	Count  uint8
+	Items  []elem
 	Marker uint16
 }
 
@@ -245,7 +245,7 @@ func TestDecodeStructSlice(t *testing.T) {
 	}
 	enc.WriteUint16(0x1234)
 	var got withElemSlice
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if got.Count != 0xa0 || got.Marker != 0x1234 || len(got.Items) != 3 {
@@ -271,7 +271,7 @@ func TestDecodeFixedArray(t *testing.T) {
 		enc.WriteUint64(i + 1)
 	}
 	var got fixedArr
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if got.Tag != 0x55 || got.Keys != [4]uint64{1, 2, 3, 4} {
@@ -303,7 +303,7 @@ func TestUnmarshalerInterfaceDispatch(t *testing.T) {
 	enc.WriteUint8(1)
 	enc.WriteUint64(0x1234567890ABCDEF)
 	var got outerIface
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if got.Tag != 1 || got.T.marker != (0x1234567890ABCDEF^0xFFFFFFFFFFFFFFFF) {
@@ -314,7 +314,7 @@ func TestUnmarshalerInterfaceDispatch(t *testing.T) {
 // Short-buffer errors propagate out through the plan executor.
 func TestDecodeShortBuffer(t *testing.T) {
 	var got withElemSlice
-	err := encoding.NewBinDecoder([]byte{0x01}).DecodeTo(&got)
+	err := encoding.NewDecoder([]byte{0x01}).DecodeTo(&got)
 	if err == nil {
 		t.Fatal("expected error on truncated input")
 	}
@@ -356,7 +356,7 @@ func TestDecodeNestedStruct(t *testing.T) {
 	encodePrimStruct(enc, inner)
 
 	var got nestedStruct
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if got.Outer != 42 || got.Inner != inner {
@@ -376,7 +376,7 @@ func TestDecodePrimitiveSlice(t *testing.T) {
 	}
 
 	var got primSliceStruct
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if len(got.Items) != len(items) {
@@ -390,7 +390,7 @@ func TestDecodePrimitiveSlice(t *testing.T) {
 }
 
 func TestDecodeRequiresNonNilPointer(t *testing.T) {
-	d := encoding.NewBinDecoder([]byte{1, 2, 3})
+	d := encoding.NewDecoder([]byte{1, 2, 3})
 	if err := d.DecodeTo(42); err == nil {
 		t.Fatal("expected error for non-pointer")
 	}
@@ -402,7 +402,7 @@ func TestDecodeRequiresNonNilPointer(t *testing.T) {
 
 func TestDecodeUnsupportedType(t *testing.T) {
 	type S struct{ F float32 }
-	d := encoding.NewBinDecoder([]byte{1, 2, 3, 4})
+	d := encoding.NewDecoder([]byte{1, 2, 3, 4})
 	var got S
 	if err := d.DecodeTo(&got); err == nil {
 		t.Fatal("expected error for unsupported float32")
@@ -422,7 +422,7 @@ func TestDecodeCacheIsHit(t *testing.T) {
 	buf := enc.Bytes()
 	for i := 0; i < 3; i++ {
 		var got primStruct
-		if err := encoding.NewBinDecoder(buf).DecodeTo(&got); err != nil {
+		if err := encoding.NewDecoder(buf).DecodeTo(&got); err != nil {
 			t.Fatalf("call %d: %v", i, err)
 		}
 		if got.A != 7 || got.B != 8 || got.C != 9 || got.D != 10 {
@@ -439,9 +439,9 @@ func TestDecodeCacheIsHit(t *testing.T) {
 // the Vec<Vec<T>> pattern without dragging programs/... into the encoding
 // test binary. Fields are typical transaction-ish things.
 type simplifiedTx struct {
-	NumSigs uint8
+	NumSigs  uint8
 	Lamports uint64
-	Memo    string
+	Memo     string
 }
 
 type entry struct {
@@ -484,7 +484,7 @@ func TestDecodeVecOfEntries(t *testing.T) {
 	enc.WriteBytes([]byte(msg3))
 
 	var entries []entry
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&entries); err != nil {
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&entries); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if len(entries) != 2 {

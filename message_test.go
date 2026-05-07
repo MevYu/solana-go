@@ -334,11 +334,11 @@ func TestTransaction_SerializedSize(t *testing.T) {
 	payer := PublicKey{0x01}
 	ix := &CompiledInstruction{ProgramIDIndex: 0, Accounts: []byte{1, 2}, Data: []byte{0xAA, 0xBB}}
 	msg := Message{
-		Version: MessageVersionLegacy,
-		Header:  MessageHeader{NumRequiredSignatures: 1},
-		AccountKeys: []PublicKey{payer, {0x02}, {0x03}},
+		Version:         MessageVersionLegacy,
+		Header:          MessageHeader{NumRequiredSignatures: 1},
+		AccountKeys:     []PublicKey{payer, {0x02}, {0x03}},
 		RecentBlockhash: Hash{0x42},
-		Instructions: []CompiledInstruction{*ix},
+		Instructions:    []CompiledInstruction{*ix},
 	}
 	tx := NewTransaction(msg)
 	wire, err := tx.Marshal()

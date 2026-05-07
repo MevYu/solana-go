@@ -73,8 +73,8 @@ func TestDecodeEntries_Single(t *testing.T) {
 	bh := Hash{9, 9, 9}
 	tx := sampleTransaction(payer, bh)
 	in := []Entry{{
-		NumHashes: 42,
-		Hash:      Hash{0xaa, 0xbb},
+		NumHashes:    42,
+		Hash:         Hash{0xaa, 0xbb},
 		Transactions: []Transaction{tx},
 	}}
 	buf := buildEntriesBuffer(t, in)

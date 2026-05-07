@@ -12,4 +12,3 @@ var ErrInvalidLength = errors.New("solana: invalid length")
 // base58 because it is empty or contains characters outside the
 // base58 alphabet.
 var ErrInvalidBase58 = errors.New("solana: invalid base58")
-

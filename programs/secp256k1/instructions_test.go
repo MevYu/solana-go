@@ -39,7 +39,7 @@ func TestNewVerifyEthSignature_Layout(t *testing.T) {
 	sigOff := binary.LittleEndian.Uint16(data[1:3])
 	ethOff := binary.LittleEndian.Uint16(data[4:6])
 	msgOff := binary.LittleEndian.Uint16(data[7:9])
-	msgSz  := binary.LittleEndian.Uint16(data[9:11])
+	msgSz := binary.LittleEndian.Uint16(data[9:11])
 	selfIx := uint8(0xff)
 
 	if sigOff != 12 {

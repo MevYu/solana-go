@@ -42,10 +42,10 @@ func NewInstruction(data []byte) solana.Instruction {
 // instruction. All data (signature, Ethereum address, message) is packed
 // inline in the instruction data field; no other instructions are needed.
 //
-//   ethAddress  — 20-byte Ethereum address (keccak256(uncompressed pubkey)[12:])
-//   signature   — 64-byte compact ECDSA signature (r ‖ s, no recovery bit)
-//   recoveryID  — 0 or 1
-//   message     — bytes that were signed; must be ≤ 65535 bytes
+//	ethAddress  — 20-byte Ethereum address (keccak256(uncompressed pubkey)[12:])
+//	signature   — 64-byte compact ECDSA signature (r ‖ s, no recovery bit)
+//	recoveryID  — 0 or 1
+//	message     — bytes that were signed; must be ≤ 65535 bytes
 //
 // The instruction has no accounts; the precompile reads everything from
 // the instruction data.
@@ -62,11 +62,11 @@ func NewVerifyEthSignature(ethAddress [20]byte, signature [64]byte, recoveryID u
 	//  bytes 97–…:      message
 	const (
 		sigOffset = uint16(12)
-		ethOffset = uint16(77) // 12 + 64 + 1 recoveryID
-		msgOffset = uint16(97) // 77 + 20
+		ethOffset = uint16(77)  // 12 + 64 + 1 recoveryID
+		msgOffset = uint16(97)  // 77 + 20
 		selfIx    = uint8(0xff) // "this instruction"
 	)
-	data := encoding.NewEncoder(int(msgOffset)+len(message)).
+	data := encoding.NewEncoder(int(msgOffset) + len(message)).
 		U8(1). // count
 		U16(sigOffset).U8(selfIx).
 		U16(ethOffset).U8(selfIx).
