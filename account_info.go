@@ -10,48 +10,32 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+// Process-wide zstd codecs. klauspost zstd's DecodeAll / EncodeAll are
+// concurrent-safe after construction; sync.OnceValue gives lazy init with
+// atomic-load fast path after the first call. Nothing initialises until
+// the first base64+zstd payload is encountered.
+//
+// WithDecoderConcurrency(0) lets the decoder spread block decompression
+// across GOMAXPROCS goroutines.
 var (
-	zstdDecOnce sync.Once
-	zstdDec     *zstd.Decoder
-	zstdEncOnce sync.Once
-	zstdEnc     *zstd.Encoder
-)
-
-// globalZstdDecoder returns the process-wide zstd decoder, initialising it on
-// first call. The decoder is safe for concurrent use by multiple goroutines.
-func globalZstdDecoder() *zstd.Decoder {
-	zstdDecOnce.Do(func() {
-		var err error
-		// WithDecoderConcurrency(0) → use GOMAXPROCS goroutines for parallel blocks.
-		// WithDecoderLowmem(false) → keep speed tables in memory (default).
-		zstdDec, err = zstd.NewReader(nil, zstd.WithDecoderConcurrency(0))
+	zstdDec = sync.OnceValue(func() *zstd.Decoder {
+		d, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(0))
 		if err != nil {
 			panic("solana: failed to initialise zstd decoder: " + err.Error())
 		}
+		return d
 	})
-	return zstdDec
-}
-
-// globalZstdEncoder returns the process-wide zstd encoder used by
-// EncodedData.MarshalJSON. klauspost zstd's Encoder.EncodeAll is safe for
-// concurrent use after construction.
-func globalZstdEncoder() *zstd.Encoder {
-	zstdEncOnce.Do(func() {
-		var err error
-		zstdEnc, err = zstd.NewWriter(nil)
+	zstdEnc = sync.OnceValue(func() *zstd.Encoder {
+		e, err := zstd.NewWriter(nil)
 		if err != nil {
 			panic("solana: failed to initialise zstd encoder: " + err.Error())
 		}
+		return e
 	})
-	return zstdEnc
-}
+)
 
-// AccountInfo is the JSON representation of an account as returned
-// by the getAccountInfo and getMultipleAccounts RPC methods.
-//
-// It differs from the wire-level Account type in that it preserves
-// the RPC protocol's encoded data form, plus the server-reported
-// Space field which is absent from the binary wire format.
+// AccountInfo is the JSON representation of an account as returned by the
+// getAccountInfo and getMultipleAccounts RPC methods.
 type AccountInfo struct {
 	Lamports   uint64      `json:"lamports"`
 	Owner      PublicKey   `json:"owner"`
@@ -106,7 +90,7 @@ func (d *EncodedData) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return fmt.Errorf("solana: EncodedData: base64 decode: %w", err)
 		}
-		out, err := globalZstdDecoder().DecodeAll(compressed, nil)
+		out, err := zstdDec().DecodeAll(compressed, nil)
 		if err != nil {
 			return fmt.Errorf("solana: EncodedData: zstd decompress: %w", err)
 		}
@@ -130,7 +114,7 @@ func (d EncodedData) MarshalJSON() ([]byte, error) {
 	case EncodingBase58:
 		value = base58.Encode(d.Bytes)
 	case EncodingBase64ZSTD:
-		compressed := globalZstdEncoder().EncodeAll(d.Bytes, nil)
+		compressed := zstdEnc().EncodeAll(d.Bytes, nil)
 		value = base64.StdEncoding.EncodeToString(compressed)
 	case EncodingJSONParsed, EncodingJSON:
 		return nil, fmt.Errorf("solana: EncodedData: encoding %q has no raw-bytes form", d.Encoding)
@@ -142,16 +126,7 @@ func (d EncodedData) MarshalJSON() ([]byte, error) {
 	return json.Marshal([2]string{value, string(d.Encoding)})
 }
 
-// ToAccount converts an AccountInfo into the binary-compatible
-// Account type. Use this when you want to store account state in
-// the same shape the binary wire format uses, or when you plan to
-// feed the account into program-specific binary decoders.
-func (a *AccountInfo) ToAccount() *Account {
-	return &Account{
-		Lamports:   a.Lamports,
-		Owner:      a.Owner,
-		Data:       a.Data.Bytes,
-		Executable: a.Executable,
-		RentEpoch:  a.RentEpoch,
-	}
-}
+// Bytes returns the decoded account-data bytes — a shorthand for
+// a.Data.Bytes when the caller only needs the payload and not the wire
+// encoding metadata.
+func (a *AccountInfo) Bytes() []byte { return a.Data.Bytes }
