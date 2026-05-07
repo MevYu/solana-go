@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/MevYu/solana-go"
-	"github.com/MevYu/solana-go/rpc"
 	"github.com/MevYu/solana-go/helpers"
 	"github.com/MevYu/solana-go/programs/system"
 	"github.com/MevYu/solana-go/rpc"

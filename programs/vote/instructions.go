@@ -9,14 +9,14 @@ import (
 // Source of truth: solana_vote_program::vote_instruction::VoteInstruction
 // (variants are repr(u32), implicit ordinal tags).
 const (
-	tagInitializeAccount       uint32 = 0
-	tagAuthorize               uint32 = 1
+	tagInitializeAccount uint32 = 0
+	tagAuthorize         uint32 = 1
 	// tag 2 is Vote (not wrapped here)
 	tagWithdraw                uint32 = 3
 	tagUpdateValidatorIdentity uint32 = 4
 	tagUpdateCommission        uint32 = 5
 	// tag 6 is VoteSwitch (not wrapped here)
-	tagAuthorizeChecked        uint32 = 7
+	tagAuthorizeChecked uint32 = 7
 )
 
 // VoteAuthorize identifies which authority field Authorize changes.

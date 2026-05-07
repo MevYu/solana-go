@@ -264,4 +264,3 @@ func (d *Decoder) ReadU256() (U256, error) {
 	}
 	return *(*U256)(unsafe.Pointer(&b[0])), nil
 }
-

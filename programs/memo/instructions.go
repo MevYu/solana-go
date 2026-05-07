@@ -13,9 +13,9 @@ type memoInstruction struct {
 	data    []byte
 }
 
-func (m *memoInstruction) ProgramID() solana.PublicKey    { return ProgramID }
+func (m *memoInstruction) ProgramID() solana.PublicKey     { return ProgramID }
 func (m *memoInstruction) Accounts() []*solana.AccountMeta { return m.signers }
-func (m *memoInstruction) Data() ([]byte, error)          { return m.data, nil }
+func (m *memoInstruction) Data() ([]byte, error)           { return m.data, nil }
 
 // Log returns an Instruction that records memo in the transaction log.
 // Optionally pass signer accounts (e.g. the fee payer) to have them

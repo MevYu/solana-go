@@ -22,7 +22,6 @@ go get github.com/MevYu/solana-go
 | `…/ws` | WebSocket subscriptions: `ws.Client`, `AccountSubscribe`, `LogsSubscribe`, … |
 | `…/encoding` | Solana wire format: `shortvec`, bincode, Borsh, chained `Encoder`/`Reader` |
 | `…/helpers` | Pure-logic helpers: `PriorityFeeStatsFromFees` |
-| `…/txbuilder` | Fluent transaction builder |
 | `…/programs/system` | System Program instructions (transfer, create-account, nonces, …) |
 | `…/programs/token` | SPL Token instructions + state decoding |
 | `…/programs/token2022` | Token-2022 instructions (incl. extension builders) + state decoding |
@@ -97,21 +96,24 @@ All ~50 stable Solana RPC methods are available as typed methods on
 accepts so unhonoured fields are a compile error rather than a silent
 no-op.
 
-### Build a transaction with the fluent builder
+### Build a transaction
 
 ```go
 import (
-    "github.com/MevYu/solana-go/txbuilder"
+    "github.com/MevYu/solana-go"
     "github.com/MevYu/solana-go/programs/system"
 )
 
-t, err := txbuilder.NewBuilder().
-    SetFeePayer(payer.PublicKey()).
-    SetRecentBlockhash(blockhash).
-    AddInstruction(system.NewTransfer(payer.PublicKey(), recipient, lamports)).
-    Sign(payer).
-    Build(ctx)
+msg, err := solana.NewMessage(
+    payer.PublicKey(),
+    []solana.Instruction{system.NewTransfer(payer.PublicKey(), recipient, lamports)},
+    blockhash,
+)
 if err != nil {
+    log.Fatal(err)
+}
+t := solana.NewTransaction(*msg)
+if err := t.Sign(ctx, payer); err != nil {
     log.Fatal(err)
 }
 ```
@@ -263,7 +265,6 @@ resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[uint64]](
 | `jsonrpc.Client`: JSON-RPC 2.0, pluggable codec, exponential-backoff retry, classifiers | ✅ |
 | ~50 typed RPC methods on `*rpc.Client` | ✅ |
 | WebSocket subscriptions (8 subscription types) on `*ws.Client` | ✅ |
-| Fluent transaction builder (`txbuilder.Builder`) | ✅ |
 | `SendAndConfirmTransaction` with blockhash refresh | ✅ |
 | `DecodeTransactionError` typed error decoding for `SimulateTransaction` / `GetTransaction` | ✅ |
 | `PriorityFeeStatsFromFees` percentile statistics | ✅ |

@@ -202,7 +202,6 @@ func (r *Reader) Bytes(n int) []byte {
 	return out
 }
 
-
 // Skip advances the position by n bytes without copying.
 func (r *Reader) Skip(n int) {
 	if r.err != nil {

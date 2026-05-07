@@ -350,7 +350,6 @@ func (c *Client) callRaw(ctx context.Context, method string, args []any) ([]byte
 	})
 }
 
-
 // doHTTP sends body as a JSON POST request and returns the response body.
 // On a non-2xx status it returns an *httpError containing the response body.
 func (c *Client) doHTTP(ctx context.Context, body []byte) ([]byte, error) {
