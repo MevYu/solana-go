@@ -115,11 +115,26 @@ read-only non-signer bucket.
 
 ## v0 and Address Lookup Tables
 
-`NewMessage` currently emits only legacy messages. A v0 builder
-that resolves large account sets through Address Lookup Tables
-is tracked as a follow-up; until it lands, construct v0 messages
-by hand or use `programs/addresslookuptable` to manage the table yourself and
-fill in `AddressTableLookups` manually.
+`NewMessage` emits legacy messages. For v0 messages that
+resolve accounts through one or more Address Lookup Tables,
+use `NewMessageV0`:
+
+```go
+func NewMessageV0(
+    payer PublicKey,
+    instructions []Instruction,
+    recentBlockhash Hash,
+    tables []LoadedAddressLookupTable,
+) (*Message, error)
+```
+
+`LoadedAddressLookupTable{AccountKey, Addresses}` lives in the
+root `solana` package; populate it from
+`addresslookuptable.DecodeTableState(rawData)` or
+`c.GetAddressLookupTable(ctx, tableAddr)`. The builder picks
+the static-vs-table split per account automatically. See
+[Address Lookup Tables](Address-Lookup-Tables) for the full
+flow.
 
 ## Related
 

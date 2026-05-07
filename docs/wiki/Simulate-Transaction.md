@@ -13,8 +13,16 @@ the canonical preflight for:
 func (c *rpc.Client) SimulateTransaction(
     ctx context.Context,
     tx *solana.Transaction,
-    opts ...rpc.CallOption,
+    cfg ...rpc.SimulateTxCfg,
 ) (*rpc.SimulateResult, error)
+
+type SimulateTxCfg struct {
+    Commitment             solana.CommitmentLevel
+    SigVerify              *bool
+    ReplaceRecentBlockhash *bool
+    MinContextSlot         *uint64
+    Encoding               solana.Encoding
+}
 ```
 
 ## Result
@@ -41,26 +49,27 @@ The `Err` field is raw `any`. Feed it to
 higher-level [SimulateTransactionDecoded](Simulate-With-Decoded-Errors)
 helper that does the decoding for you.
 
-## Honoured options
+## Cfg fields
 
-| Option | Effect |
+| Field | Effect |
 |---|---|
-| `WithCommitment` | Commitment level to simulate against |
-| `WithSigVerify(true)` | Enable on-server signature verification |
-| `WithReplaceRecentBlockhash(true)` | Replace the blockhash with a fresh one before simulating |
-| `WithMinContextSlot` | Require a minimum node slot |
+| `Commitment` | Commitment level to simulate against |
+| `SigVerify` | Enable on-server signature verification |
+| `ReplaceRecentBlockhash` | Replace the blockhash with a fresh one before simulating |
+| `MinContextSlot` | Require a minimum node slot |
+| `Encoding` | Wire encoding (defaults to base64) |
 
-**`WithSigVerify` and `WithReplaceRecentBlockhash` are mutually
+**`SigVerify` and `ReplaceRecentBlockhash` are mutually
 exclusive at the server** — Solana rejects a request carrying
 both. The Go SDK passes them through as-is; pick one.
 
 ## Signing requirements
 
 - By default, the transaction must be signed.
-- With `WithReplaceRecentBlockhash(true)`, the server re-signs
-  with a dummy key and the input transaction's signatures are
-  ignored. This is useful for simulating a transaction whose
-  blockhash has already expired.
+- With `SimulateTxCfg{ReplaceRecentBlockhash: &b}` (where `b == true`),
+  the server re-signs with a dummy key and the input
+  transaction's signatures are ignored. This is useful for
+  simulating a transaction whose blockhash has already expired.
 
 ## Example: measure compute units
 
@@ -104,7 +113,7 @@ if sim.ReturnData != nil {
 ```go
 import (
     "errors"
-    "github.com/MevYu/solana-go/helpers"
+    "github.com/MevYu/solana-go/rpc"
 )
 
 sim, err := c.SimulateTransaction(ctx, tx)

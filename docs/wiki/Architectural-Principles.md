@@ -192,11 +192,12 @@ was written from scratch to avoid that encumbrance.
 Three places have documented escape hatches for users who
 need to bypass the typed layer:
 
-- `*rpc.Client.CallContext(ctx, &out, method, params...)` —
-  the raw JSON-RPC transport for methods not yet typed
-  (promoted through `*rpc.Client` by embedding `*jsonrpc.Client`).
-- `jsonrpc.CallContextValue[T](ctx, c.Client, method, params...)`
-  — the same, but for context-wrapped responses.
+- `jsonrpc.CallContext[T](ctx, c.Client, method, params...)`
+  — the raw JSON-RPC transport for methods not yet typed.
+  Instantiate `T = jsonrpc.ContextValue[X]` for context-wrapped
+  responses. (This is a free function because Go forbids type
+  parameters on methods.) `*rpc.Client` embeds `*jsonrpc.Client`,
+  so `c.Client` is the second argument.
 - `token2022.Wrap(ix)` — substitute Token-2022's program id
   for any instruction that is byte-identical to its SPL
   Token counterpart.

@@ -91,10 +91,12 @@ Skip preflight only when:
   but valid on another).
 
 ```go
-sig, err := c.SendTransaction(ctx, tx,
-    rpc.WithSkipPreflight(true),
-    rpc.WithMaxRetries(0), // don't let the server retry on our behalf
-)
+skip := true
+maxRetries := uint(0)
+sig, err := c.SendTransaction(ctx, tx, rpc.SendTxCfg{
+    SkipPreflight: &skip,
+    MaxRetries:    &maxRetries, // don't let the server retry on our behalf
+})
 ```
 
 ## After `Send` returns

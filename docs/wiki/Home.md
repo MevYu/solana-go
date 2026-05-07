@@ -15,14 +15,14 @@ The wiki tracks the current `main` branch.
   account layout, and a `Signer` interface that accepts both local
   `Ed25519Keypair` and function-adapted `RemoteSigner` (HSM /
   Ledger / cloud KMS).
-- **Typed JSON-RPC client** — `rpc.Client` (backed by
-  `rpc.Client` transport) exposes one Go method per stable Solana
-  RPC method, with typed functional options for commitment /
-  encoding / pagination, and a pluggable codec that defaults to
-  `goccy/go-json`. The generic helper `jsonrpc.CallContextValue[T]`
-  decodes `{context, value}` envelopes in a single pass without
-  per-method boilerplate, keeping public result types free of JSON
-  tags.
+- **Typed JSON-RPC client** — `rpc.Client` (built on the
+  `jsonrpc` transport) exposes one Go method per stable Solana
+  RPC method, with typed `rpc.XxxCfg` config structs for
+  commitment / encoding / pagination, and a pluggable codec
+  that defaults to `goccy/go-json`. The generic free function
+  `jsonrpc.CallContext[T]` decodes responses in a single pass;
+  for `{context, value}` envelopes, instantiate
+  `T = jsonrpc.ContextValue[X]`.
 - **WebSocket subscriptions** — `ws.Client` exposes
   `AccountSubscribe`, `LogsSubscribe`, `SlotSubscribe`,
   `RootSubscribe`, `ProgramSubscribe`, `SignatureSubscribe`,

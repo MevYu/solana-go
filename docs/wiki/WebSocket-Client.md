@@ -136,10 +136,10 @@ for {
 Every `*Notification` struct carries `json:` tags directly on its
 public fields and is decoded straight from the wire by
 `jsonrpc.ContextValue[T]` — the same envelope type that drives the
-HTTP-side `jsonrpc.CallContextValue[T]` helper. Slot fields delivered
-by the JSON-RPC context envelope are tagged `json:"-"` and assigned
-post-decode; the inner-value Slot in `BlockNotification` is tagged
-`json:"slot"`.
+HTTP-side `jsonrpc.CallContext[jsonrpc.ContextValue[X]]` flow. Slot
+fields delivered by the JSON-RPC context envelope are tagged
+`json:"-"` and assigned post-decode; the inner-value Slot in
+`BlockNotification` is tagged `json:"slot"`.
 
 ## Available subscriptions
 

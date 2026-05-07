@@ -7,7 +7,7 @@ that returns a typed value.
 ## `GetBalance`
 
 ```go
-func (c *Client) GetBalance(ctx context.Context, pubkey PublicKey, opts ...CallOption) (*GetBalanceResult, error)
+func (c *Client) GetBalance(ctx context.Context, pubkey solana.PublicKey, cfg ...rpc.CommitmentWithMinSlotCfg) (*GetBalanceResult, error)
 
 type GetBalanceResult struct {
     Slot  uint64
@@ -19,7 +19,7 @@ Returns the balance (in lamports) of the account at `pubkey`.
 The returned `Slot` is the slot at which the balance was read;
 use it if you need to compare timing across calls.
 
-Honoured options: `WithCommitment`, `WithMinContextSlot`.
+Cfg: `rpc.CommitmentWithMinSlotCfg{Commitment, MinContextSlot}`.
 
 ```go
 res, _ := c.GetBalance(ctx, wallet)
@@ -29,17 +29,17 @@ fmt.Printf("%d lamports @ slot %d\n", res.Value, res.Slot)
 ## `GetSlot`
 
 ```go
-func (c *Client) GetSlot(ctx context.Context, opts ...CallOption) (uint64, error)
+func (c *Client) GetSlot(ctx context.Context, cfg ...rpc.CommitmentWithMinSlotCfg) (uint64, error)
 ```
 
 Returns the current absolute slot the node is processing.
 
-Honoured options: `WithCommitment`, `WithMinContextSlot`.
+Cfg: `rpc.CommitmentWithMinSlotCfg{Commitment, MinContextSlot}`.
 
 ## `GetBlockHeight`
 
 ```go
-func (c *Client) GetBlockHeight(ctx context.Context, opts ...CallOption) (uint64, error)
+func (c *Client) GetBlockHeight(ctx context.Context, cfg ...rpc.CommitmentWithMinSlotCfg) (uint64, error)
 ```
 
 Returns the current block height — the number of blocks
@@ -52,12 +52,12 @@ field in `GetLatestBlockhash`: once the current block height
 passes that value, a transaction committed to the blockhash
 can no longer land.
 
-Honoured options: `WithCommitment`, `WithMinContextSlot`.
+Cfg: `rpc.CommitmentWithMinSlotCfg{Commitment, MinContextSlot}`.
 
 ## `GetLatestBlockhash`
 
 ```go
-func (c *Client) GetLatestBlockhash(ctx context.Context, opts ...CallOption) (*LatestBlockhash, error)
+func (c *Client) GetLatestBlockhash(ctx context.Context, cfg ...rpc.CommitmentWithMinSlotCfg) (*LatestBlockhash, error)
 
 type LatestBlockhash struct {
     Slot                 uint64
@@ -72,7 +72,7 @@ still land. Callers use the `Blockhash` in new transactions and
 poll `LastValidBlockHeight` vs `GetBlockHeight` to decide when
 to refresh.
 
-Honoured options: `WithCommitment`, `WithMinContextSlot`.
+Cfg: `rpc.CommitmentWithMinSlotCfg{Commitment, MinContextSlot}`.
 
 ### Blockhash lifetime
 

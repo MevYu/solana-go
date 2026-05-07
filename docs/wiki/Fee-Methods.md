@@ -8,10 +8,10 @@ Airdrop, fee pricing, and priority-fee observation live in
 ```go
 func (c *Client) RequestAirdrop(
     ctx context.Context,
-    pubkey PublicKey,
+    pubkey solana.PublicKey,
     lamports uint64,
-    opts ...CallOption,
-) (Signature, error)
+    cfg ...rpc.CommitmentCfg,
+) (solana.Signature, error)
 ```
 
 Asks the cluster to deposit `lamports` into `pubkey`. **Only
@@ -22,7 +22,7 @@ On success, the returned `Signature` is the airdrop
 transaction's signature; poll it via `GetSignatureStatuses`
 to wait for confirmation.
 
-Honoured options: `WithCommitment`.
+Cfg: `rpc.CommitmentCfg{Commitment: …}`.
 
 ```go
 sig, err := c.RequestAirdrop(ctx, wallet, 1_000_000_000)
@@ -37,8 +37,8 @@ if err != nil {
 ```go
 func (c *Client) GetFeeForMessage(
     ctx context.Context,
-    msg *Message,
-    opts ...CallOption,
+    msg *solana.Message,
+    cfg ...rpc.CommitmentWithMinSlotCfg,
 ) (*GetFeeForMessageResult, error)
 
 type GetFeeForMessageResult struct {
@@ -67,14 +67,14 @@ if res.Fee == nil {
 }
 ```
 
-Honoured options: `WithCommitment`, `WithMinContextSlot`.
+Cfg: `rpc.CommitmentWithMinSlotCfg{Commitment, MinContextSlot}`.
 
 ## `GetRecentPrioritizationFees`
 
 ```go
 func (c *Client) GetRecentPrioritizationFees(
     ctx context.Context,
-    addresses []PublicKey,
+    addresses []solana.PublicKey,
 ) ([]PrioritizationFee, error)
 
 type PrioritizationFee struct {
@@ -118,7 +118,7 @@ See [Priority Fee Estimation](Priority-Fee-Estimation) for the
 percentile interpretation and a recipe for building a budgeted
 transaction around the result.
 
-No options are honoured on this method.
+No cfg is accepted on this method.
 
 ## Related
 

@@ -7,7 +7,7 @@ the network as a whole.
 ## `GetEpochInfo`
 
 ```go
-func (c *Client) GetEpochInfo(ctx context.Context, opts ...CallOption) (*EpochInfo, error)
+func (c *Client) GetEpochInfo(ctx context.Context, cfg ...rpc.CommitmentWithMinSlotCfg) (*EpochInfo, error)
 
 type EpochInfo struct {
     AbsoluteSlot     uint64
@@ -24,12 +24,12 @@ total number of slots in the epoch, the current absolute slot,
 block height, and (optionally) the total transaction count
 since genesis.
 
-Honoured options: `WithCommitment`, `WithMinContextSlot`.
+Cfg: `rpc.CommitmentWithMinSlotCfg{Commitment, MinContextSlot}`.
 
 ## `GetSupply`
 
 ```go
-func (c *Client) GetSupply(ctx context.Context, opts ...CallOption) (*SupplyResult, error)
+func (c *Client) GetSupply(ctx context.Context, cfg ...rpc.CommitmentCfg) (*SupplyResult, error)
 
 type SupplyResult struct {
     Slot                   uint64
@@ -44,7 +44,7 @@ Returns the circulating and total SOL supply (in lamports).
 `NonCirculatingAccounts` lists the accounts holding
 non-circulating supply.
 
-Honoured options: `WithCommitment`.
+Cfg: `rpc.CommitmentCfg{Commitment: …}`.
 
 ## `GetInflationRate`
 
@@ -68,7 +68,7 @@ foundation share. No options are honoured.
 func (c *Client) GetMinimumBalanceForRentExemption(
     ctx context.Context,
     dataSize uint64,
-    opts ...CallOption,
+    cfg ...rpc.CommitmentCfg,
 ) (uint64, error)
 ```
 
@@ -77,7 +77,7 @@ hold to be rent-exempt. Pass this value as the `lamports`
 argument to `system.NewCreateAccount` to fund a new account
 just above the rent-exempt threshold.
 
-Honoured options: `WithCommitment`.
+Cfg: `rpc.CommitmentCfg{Commitment: …}`.
 
 ```go
 size := uint64(82) // SPL Token mint account size
@@ -88,14 +88,14 @@ fmt.Println("rent-exempt lamports:", rent)
 ## `GetSlotLeader`
 
 ```go
-func (c *Client) GetSlotLeader(ctx context.Context, opts ...CallOption) (PublicKey, error)
+func (c *Client) GetSlotLeader(ctx context.Context, cfg ...rpc.CommitmentWithMinSlotCfg) (solana.PublicKey, error)
 ```
 
 Returns the public key of the current slot leader. Useful for
 leader-aware transaction forwarding or leader-schedule based
 optimisations.
 
-Honoured options: `WithCommitment`, `WithMinContextSlot`.
+Cfg: `rpc.CommitmentWithMinSlotCfg{Commitment, MinContextSlot}`.
 
 ## `GetBlockTime`
 
