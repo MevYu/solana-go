@@ -11,7 +11,6 @@ func BorshDecodeTo(data []byte, v any) error {
 	return NewDecoder(data).UseBorsh().DecodeTo(v)
 }
 
-// UseBorsh switches the Decoder's default length prefix from bincode u64
-// to Borsh u32 for slice and string fields that don't pin a prefix via
-// `bin:"sizePrefix=..."`. Returns the receiver for chaining.
-func (d *Decoder) UseBorsh() *Decoder { d.defaultPrefix = prefixU32; return d }
+// UseBorsh switches the Decoder's reflective length prefix from bincode u64
+// to Borsh u32 for slice and string fields. Returns the receiver for chaining.
+func (d *Decoder) UseBorsh() *Decoder { d.borsh = true; return d }

@@ -86,23 +86,6 @@ func TestBorshDecodeTo_FixedArrayUnchanged(t *testing.T) {
 	}
 }
 
-func TestBorshDecodeTo_FieldTagOverridesDefault(t *testing.T) {
-	// A field with explicit `bin:"sizePrefix=u8"` should still use u8
-	// even on a Borsh decoder.
-	data := New().U8(2).U32(7).U32(8).Bytes()
-
-	type S struct {
-		Items []uint32 `bin:"sizePrefix=u8"`
-	}
-	var s S
-	if err := BorshDecodeTo(data, &s); err != nil {
-		t.Fatalf("BorshDecodeTo: %v", err)
-	}
-	if len(s.Items) != 2 || s.Items[0] != 7 || s.Items[1] != 8 {
-		t.Errorf("Items = %v", s.Items)
-	}
-}
-
 func TestUseBorsh_OnExistingDecoder(t *testing.T) {
 	data := New().U32(2).U16(11).U16(22).Bytes()
 

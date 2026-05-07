@@ -26,7 +26,6 @@ func GetAccountInfoJSON() []byte { return getAccountInfoJSON }
 func GetTransactionJSON() []byte { return getTransactionJSON }
 
 // GetBlockJSON returns the bytes of a synthetic getBlock result
-// payload. The fixture holds a handful of transactions and is sized
-// to be representative of block decoding, not of real mainnet blocks;
-// upgrading to real captures is a Phase A follow-up.
+// payload. The fixture holds a handful of transactions; it is sized
+// for representative block decoding, not for real mainnet blocks.
 func GetBlockJSON() []byte { return getBlockJSON }

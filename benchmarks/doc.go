@@ -1,11 +1,8 @@
-// Package benchmarks is the home of Phase A performance
-// measurements. It is kept out of the root solana package so that
-// benchmark-only fixtures, target structs, and helper generators do
-// not bleed into the shipping API.
+// Package benchmarks holds repository-wide benchmarks and the smoke
+// tests that gate their fixtures. Bench targets, fixture loaders, and
+// synthetic data generators live here so they don't bleed into the
+// shipping API of the packages under test.
 //
-// Every benchmark in this package reads from checked-in fixtures
-// under testdata/ so that results are reproducible across machines
-// and Go versions. The current fixtures are hand-crafted
-// shape-accurate synthetic samples; replacing them with real
-// mainnet captures is a Phase A follow-up.
+// Fixtures are checked-in JSON / binary captures under testdata/ so
+// results are reproducible across machines and Go versions.
 package benchmarks
