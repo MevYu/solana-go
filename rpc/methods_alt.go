@@ -38,11 +38,7 @@ func (c *Client) GetAddressLookupTable(ctx context.Context, address solana.Publi
 	if acc == nil {
 		return nil, nil
 	}
-	raw, err := acc.Data.Bytes()
-	if err != nil {
-		return nil, fmt.Errorf("client: GetAddressLookupTable: decode data: %w", err)
-	}
-	state, err := addresslookuptable.DecodeTableState(raw)
+	state, err := addresslookuptable.DecodeTableState(acc.Data.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("client: GetAddressLookupTable: %w", err)
 	}

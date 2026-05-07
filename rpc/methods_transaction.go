@@ -16,7 +16,7 @@ type GetTransactionResult struct {
 	Slot        uint64             `json:"slot"`
 	BlockTime   *int64             `json:"blockTime"`
 	Meta        *TransactionMeta   `json:"meta"`
-	Transaction solana.AccountData `json:"transaction"`
+	Transaction solana.EncodedData `json:"transaction"`
 	Version     any                `json:"version"`
 }
 
