@@ -10,9 +10,9 @@ this stream.
 ```go
 func (c *ws.Client) LogsSubscribe(
     ctx context.Context,
-    filter c.LogsFilter,
-    opts ...rpc.CallOption,
-) (*c.LogsSubscription, error)
+    filter ws.LogsFilter,
+    cfg ...rpc.LogsSubscribeCfg,
+) (*ws.LogsSubscription, error)
 
 type LogsFilter struct {
     All          bool
@@ -33,7 +33,7 @@ type LogNotification struct {
 Exactly one of `All`, `AllWithVotes`, or `Mentions` should be
 set; if none are set, the filter defaults to `All`.
 
-Honoured options: `WithCommitment`.
+Cfg: `rpc.LogsSubscribeCfg{Commitment: …}`.
 
 ## Filter semantics
 
@@ -55,11 +55,11 @@ import (
     "github.com/MevYu/solana-go/rpc"
 )
 
-ws, _ := ws.DialWebSocket(ctx, endpoint)
-defer ws.Close()
+wsc, _ := ws.DialWebSocket(ctx, endpoint)
+defer wsc.Close()
 
 wallet, _ := solana.PublicKeyFromBase58("...")
-sub, err := ws.LogsSubscribe(ctx, c.LogsFilter{
+sub, err := wsc.LogsSubscribe(ctx, ws.LogsFilter{
     Mentions: []solana.PublicKey{wallet},
 })
 if err != nil {
@@ -88,7 +88,7 @@ for {
 
 ```go
 programID, _ := solana.PublicKeyFromBase58("...")
-sub, _ := ws.LogsSubscribe(ctx, c.LogsFilter{
+sub, _ := wsc.LogsSubscribe(ctx, ws.LogsFilter{
     Mentions: []solana.PublicKey{programID},
 })
 

@@ -2,9 +2,8 @@
 
 `rpc.DecodeTransactionError` turns the raw JSON shape Solana
 returns for transaction errors into typed Go errors you can
-pattern-match on. The `helpers/` package is intentionally pure-logic
-and does not perform any RPC calls itself: pair the decoder with
-`Client.SimulateTransaction` (or `GetTransaction.Meta.Err`) directly.
+pattern-match on. Pair the decoder with `Client.SimulateTransaction`
+(or `GetTransaction.Meta.Err`) directly.
 
 ## Typed error shapes
 
@@ -55,7 +54,7 @@ preserves integer types).
 ```go
 import (
     "errors"
-    "github.com/MevYu/solana-go/helpers"
+    "github.com/MevYu/solana-go/rpc"
 )
 
 sim, err := c.SimulateTransaction(ctx, tx)

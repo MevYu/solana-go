@@ -63,8 +63,8 @@ func (d AccountData) Bytes() ([]byte, error)
 
 - `base64` → `base64.StdEncoding.DecodeString`
 - `base58` → `base58.Decode`
-- `base64+zstd` → error (this SDK does not pull in a zstd
-  decoder by default)
+- `base64+zstd` → base64 decode then `klauspost/compress/zstd`
+  decompress (40–80% bandwidth saving for large accounts)
 - `jsonParsed` / `json` → error (the server already parsed the
   data to a structured object; call sites that want `jsonParsed`
   should decode the object directly with their typed struct)
@@ -120,5 +120,5 @@ fmt.Printf("%d lamports owned by %s, %d bytes\n",
 
 - [Account Methods](Account-Methods) — `GetAccountInfo` and
   `GetMultipleAccounts`.
-- [Call Options](Call-Options) — `WithEncoding`, `WithDataSlice`,
-  `WithCommitment`.
+- [Call Options](Call-Options) — `AccountInfoCfg{Encoding,
+  DataSlice, Commitment}`.

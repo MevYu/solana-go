@@ -12,14 +12,14 @@ Four specialised subscriptions live in `ws/wsclient_extra.go`:
 ```go
 func (c *ws.Client) ProgramSubscribe(
     ctx context.Context,
-    programID PublicKey,
-    opts ...CallOption,
+    programID solana.PublicKey,
+    cfg ...rpc.CommitmentWithEncodingCfg,
 ) (*ProgramSubscription, error)
 
 type ProgramNotification struct {
     Slot    uint64
-    Pubkey  PublicKey    // the account that changed
-    Account *AccountInfo // its new state
+    Pubkey  solana.PublicKey    // the account that changed
+    Account *solana.AccountInfo // its new state
 }
 ```
 
@@ -28,16 +28,16 @@ program. This is a high-volume subscription for popular
 programs (SPL Token, Jupiter, Raydium); prefer
 `AccountSubscribe` on a specific account if you can.
 
-Honoured options: `WithCommitment`, `WithEncoding`
+Cfg: `rpc.CommitmentWithEncodingCfg{Commitment, Encoding}`
 (default base64).
 
 ### Example: watch every USDC token account change
 
 ```go
 tokenProgram, _ := solana.PublicKeyFromBase58("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-sub, err := ws.ProgramSubscribe(ctx, tokenProgram,
-    rpc.WithCommitment(solana.CommitmentConfirmed),
-)
+sub, err := wsc.ProgramSubscribe(ctx, tokenProgram, rpc.CommitmentWithEncodingCfg{
+    Commitment: solana.CommitmentConfirmed,
+})
 ```
 
 This fires on **every** SPL Token account update on mainnet,
@@ -49,8 +49,8 @@ you route to a downstream queue.
 ```go
 func (c *ws.Client) SignatureSubscribe(
     ctx context.Context,
-    sig Signature,
-    opts ...CallOption,
+    sig solana.Signature,
+    cfg ...rpc.SignatureSubscribeCfg,
 ) (*SignatureSubscription, error)
 
 type SignatureNotification struct {
@@ -67,16 +67,16 @@ This is the lowest-latency way to wait for confirmation of a
 specific transaction — the server pushes as soon as the
 signature reaches commitment, no polling required.
 
-Honoured options: `WithCommitment`.
+Cfg: `rpc.SignatureSubscribeCfg{Commitment: …}`.
 
 ### Example: confirm a just-submitted transaction
 
 ```go
 sig, _ := c.SendTransaction(ctx, tx)
 
-sub, err := ws.SignatureSubscribe(ctx, sig,
-    rpc.WithCommitment(solana.CommitmentConfirmed),
-)
+sub, err := wsc.SignatureSubscribe(ctx, sig, rpc.SignatureSubscribeCfg{
+    Commitment: solana.CommitmentConfirmed,
+})
 if err != nil {
     return err
 }
@@ -97,19 +97,19 @@ case n := <-sub.Recv():
 ```go
 func (c *ws.Client) BlockSubscribe(
     ctx context.Context,
-    filter BlockFilter,
-    opts ...CallOption,
+    filter ws.BlockFilter,
+    cfg ...rpc.GetBlockCfg,
 ) (*BlockSubscription, error)
 
 type BlockFilter struct {
     All                      bool
-    MentionsAccountOrProgram PublicKey
+    MentionsAccountOrProgram solana.PublicKey
 }
 
 type BlockNotification struct {
     Slot  uint64
     Err   any
-    Block *GetBlockResult
+    Block *rpc.GetBlockResult
 }
 ```
 
@@ -117,8 +117,8 @@ type BlockNotification struct {
 launched with `--rpc-pubsub-enable-block-subscription` to
 accept the subscribe request.
 
-Honoured options: `WithCommitment`, `WithEncoding`,
-`WithMaxSupportedTransactionVersion`.
+Cfg: `rpc.GetBlockCfg{Commitment, Encoding,
+MaxSupportedTransactionVersion}`.
 
 When a subscription is set up with `MentionsAccountOrProgram`,
 the server filters for blocks containing at least one
@@ -157,7 +157,7 @@ Accepts no options.
 ### Example: measure shred-receive to frozen latency
 
 ```go
-sub, _ := ws.SlotsUpdatesSubscribe(ctx)
+sub, _ := wsc.SlotsUpdatesSubscribe(ctx)
 defer sub.Unsubscribe(context.Background())
 
 firstSeen := map[uint64]int64{}

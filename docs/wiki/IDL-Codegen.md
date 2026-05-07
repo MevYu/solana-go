@@ -30,7 +30,7 @@ import (
     "github.com/MevYu/solana-go/encoding"
 )
 
-var discTransfer = sha256.Sum256([]byte("global:transfer"))[:8]
+var discTransfer = sha256.Sum256([]byte("global:transfer"))
 
 func NewTransfer(authority, src, dst solana.PublicKey, amount uint64) solana.Instruction {
     return &myIx{
@@ -40,17 +40,17 @@ func NewTransfer(authority, src, dst solana.PublicKey, amount uint64) solana.Ins
             solana.NewAccountMeta(dst, false, true),
         },
         data: encoding.New().
-            Discriminator([8]byte(discTransfer)).
+            Raw(discTransfer[:8]).
             U64(amount).
-            Buf(),
+            Bytes(),
     }
 }
 ```
 
-For account state, define a Go struct with `bin:"…"` tags and
-decode with `encoding.BorshDecodeTo(data, &v)`. The Anchor
-account discriminator is the first 8 bytes:
-`sha256("account:<TypeName>")[:8]`.
+For account state, define a plain Go struct (no tags — the
+decoder walks fields in declaration order) and decode with
+`encoding.BorshDecodeTo(data, &v)`. Strip the 8-byte Anchor
+discriminator first: `sha256("account:<TypeName>")[:8]`.
 
 ## Decoding program errors
 

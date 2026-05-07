@@ -42,9 +42,10 @@ The default `jsonrpc.RetryPolicy` retries only transient errors:
 
 Context cancellation and deadline errors are **never** retried.
 The policy is exponential backoff with full jitter, capped at
-10 seconds per attempt and 5 attempts total. Customise by
-passing `jsonrpc.WithRetryPolicy(yourPolicy)` to `rpc.NewClient`
-(or `c.NewFromRPC` with a pre-configured `*rpc.Client`).
+10 seconds per attempt and 5 attempts total. Customise via
+`jsonrpc.WithRetryPolicy(yourPolicy)` passed to
+`rpc.NewClientWith(...)`, or via the `RetryPolicy` field of
+`jsonrpc.Config` passed to `rpc.NewClient(url, cfg)`.
 
 ## JSON-RPC: `*jsonrpc.ErrRPC`
 
@@ -77,7 +78,7 @@ if errors.As(err, &rpcErr) {
 
 ### Known numeric codes
 
-`error_classifier.go` defines the numeric codes Solana uses
+`jsonrpc/classify.go` defines the numeric codes Solana uses
 for common failures:
 
 | Constant | Code | Meaning |
@@ -94,11 +95,11 @@ for common failures:
 | `RPCErrCodeTransactionPrecompileFail` | -32011 | Precompile rejected the transaction |
 | `RPCErrCodeScanError` | -32012 | Internal scan error |
 | `RPCErrCodeTransactionHistoryOff` | -32013 | This node does not index history |
-| `RPCErrCodeMinContextSlotNotReached` | -32016 | Server is behind `WithMinContextSlot` |
+| `RPCErrCodeMinContextSlotNotReached` | -32016 | Server is behind the requested `MinContextSlot` |
 
 ## Classifier helpers
 
-The `Is*` functions in the **`rpc`** package match an error
+The `Is*` functions in the **`jsonrpc`** package match an error
 against a symbolic condition, regardless of whether the cause is
 a sentinel (`errors.Is`), an `*ErrRPC` with a known numeric
 code, or a message substring. Use them in retry loops instead of
@@ -140,17 +141,17 @@ over the 5-attempt default.
 ## Sentinel errors
 
 ```go
-// All defined in package rpc (rpc/classify.go).
+// All defined in package jsonrpc (jsonrpc/classify.go).
 var (
-    jsonrpc.ErrBlockhashExpired   = errors.New("solana: blockhash expired")
-    jsonrpc.ErrInsufficientFunds  = errors.New("solana: insufficient funds")
-    jsonrpc.ErrRateLimited        = errors.New("solana: rate limited")
-    jsonrpc.ErrNodeBehind         = errors.New("solana: node is behind the cluster")
-    jsonrpc.ErrTransactionExpired = errors.New("solana: transaction expired")
-    jsonrpc.ErrAccountNotFound    = errors.New("solana: account not found")
-    jsonrpc.ErrSignatureNotFound  = errors.New("solana: signature not found")
-    jsonrpc.ErrSlotSkipped        = errors.New("solana: slot skipped")
-    jsonrpc.ErrBlockCleanedUp     = errors.New("solana: block cleaned up")
+    ErrBlockhashExpired   = errors.New("solana: blockhash expired")
+    ErrInsufficientFunds  = errors.New("solana: insufficient funds")
+    ErrRateLimited        = errors.New("solana: rate limited")
+    ErrNodeBehind         = errors.New("solana: node is behind the cluster")
+    ErrTransactionExpired = errors.New("solana: transaction expired")
+    ErrAccountNotFound    = errors.New("solana: account not found")
+    ErrSignatureNotFound  = errors.New("solana: signature not found")
+    ErrSlotSkipped        = errors.New("solana: slot skipped")
+    ErrBlockCleanedUp     = errors.New("solana: block cleaned up")
 )
 ```
 
@@ -163,7 +164,7 @@ supported if you want to propagate a canonical shape.
 ## Transaction / instruction errors
 
 ```go
-import "github.com/MevYu/solana-go/helpers"
+import "github.com/MevYu/solana-go/rpc"
 
 err := rpc.DecodeTransactionError(rawErrFromRPC)
 

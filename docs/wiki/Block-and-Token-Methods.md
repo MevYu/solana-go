@@ -6,19 +6,19 @@ Block retrieval and SPL Token balance / supply queries live in
 ## `GetBlock`
 
 ```go
-func (c *Client) GetBlock(ctx context.Context, slot uint64, opts ...CallOption) (*GetBlockResult, error)
+func (c *Client) GetBlock(ctx context.Context, slot uint64, cfg ...rpc.GetBlockCfg) (*GetBlockResult, error)
 ```
 
 Fetches the content of a single block by absolute slot. Returns
 `nil, nil` if the slot is absent or skipped — treat a nil result
 as a success signal that the slot was empty, not as an error.
 
-### Honoured options
+### Cfg fields (`rpc.GetBlockCfg`)
 
-- `WithCommitment`
-- `WithEncoding` (default: `EncodingBase64`)
-- `WithMaxSupportedTransactionVersion` (default: `0`, which
-  means v0 transactions are accepted)
+- `Commitment`
+- `Encoding` (default: `EncodingBase64`)
+- `MaxSupportedTransactionVersion` (default: `0`, accepts v0 transactions)
+- `TransactionDetails`, `Rewards`
 
 ### Result shape
 
@@ -65,14 +65,14 @@ follow-up releases.
 ## `GetBlocks`
 
 ```go
-func (c *Client) GetBlocks(ctx context.Context, start uint64, end *uint64, opts ...CallOption) ([]uint64, error)
+func (c *Client) GetBlocks(ctx context.Context, start uint64, end *uint64, cfg ...rpc.CommitmentCfg) ([]uint64, error)
 ```
 
 Returns the list of confirmed block slots in the inclusive
 range `[start, end]`. Pass `nil` for `end` to use the node's
 latest confirmed slot.
 
-Honoured options: `WithCommitment`.
+Cfg: `rpc.CommitmentCfg{Commitment: …}`.
 
 ```go
 slots, err := c.GetBlocks(ctx, 12_000_000, nil)
@@ -85,8 +85,8 @@ slots, err := c.GetBlocks(ctx, 12_000_000, nil)
 ```go
 func (c *Client) GetTokenAccountBalance(
     ctx context.Context,
-    account PublicKey,
-    opts ...CallOption,
+    account solana.PublicKey,
+    cfg ...rpc.CommitmentCfg,
 ) (*GetTokenAccountBalanceResult, error)
 
 type TokenAmount struct {
@@ -102,18 +102,18 @@ pass the associated token account address). The raw `Amount`
 is a decimal string because Solana's JSON-RPC emits u64 values
 as strings to survive clients that can't represent `2^53 + 1`.
 
-Honoured options: `WithCommitment`.
+Cfg: `rpc.CommitmentCfg{Commitment: …}`.
 
 ### `GetTokenSupply`
 
 ```go
-func (c *Client) GetTokenSupply(ctx context.Context, mint PublicKey, opts ...CallOption) (*GetTokenSupplyResult, error)
+func (c *Client) GetTokenSupply(ctx context.Context, mint solana.PublicKey, cfg ...rpc.CommitmentCfg) (*GetTokenSupplyResult, error)
 ```
 
 Returns the total supply of an SPL Token mint. Same
 `TokenAmount` shape.
 
-Honoured options: `WithCommitment`.
+Cfg: `rpc.CommitmentCfg{Commitment: …}`.
 
 ## Example: compute a wallet's USDC balance
 

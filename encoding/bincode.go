@@ -1,8 +1,3 @@
-// Package encoding provides Solana wire-format serialization primitives.
-//
-// bincode.go implements the little-endian binary codec used for Solana
-// transaction and message encoding, including Solana's compact-u16
-// (shortvec) length-prefix format.
 package encoding
 
 import "errors"
@@ -123,10 +118,28 @@ func NewDecoder(b []byte) *Decoder {
 	return &Decoder{buf: b}
 }
 
-// BinDecodeTo is a one-shot bincode reflection decoder: equivalent to
-// NewDecoder(data).DecodeTo(v). Use this when you just want to parse a
-// buffer into a struct. For fixed-shape, performance-sensitive decoders
-// prefer the Reader API. The Borsh counterpart is BorshDecodeTo.
+// BinDecodeTo decodes data into v using Rust bincode wire conventions.
+//
+// What's different from Borsh (BorshDecodeTo) — exactly two field shapes:
+//
+//   - []T / Vec<T> length: 8-byte u64 LE prefix      (Borsh: 4-byte u32)
+//   - string / String length: 8-byte u64 LE prefix   (Borsh: 4-byte u32)
+//
+// Everything else (fixed arrays, primitives, *T / Option<T>, struct
+// concatenation) is identical, so structs with no slice or string fields
+// decode the same either way.
+//
+// Pick BinDecodeTo for accounts produced by Solana built-ins serialised
+// with the Rust bincode crate:
+//
+//   - System Program nonce accounts
+//   - Vote Program state
+//   - Stake Program state
+//
+// Most modern Solana programs use Borsh; reach for BorshDecodeTo by default
+// and only fall back to BinDecodeTo for the built-ins listed above.
+//
+// For fixed-shape, performance-sensitive decoders prefer the Reader API.
 func BinDecodeTo(data []byte, v any) error {
 	return NewDecoder(data).DecodeTo(v)
 }

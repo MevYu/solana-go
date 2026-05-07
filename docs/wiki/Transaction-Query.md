@@ -6,8 +6,8 @@ lives in `rpc/methods_transaction.go`.
 ```go
 func (c *Client) GetTransaction(
     ctx context.Context,
-    sig Signature,
-    opts ...CallOption,
+    sig solana.Signature,
+    cfg ...rpc.GetTransactionCfg,
 ) (*GetTransactionResult, error)
 ```
 
@@ -57,13 +57,13 @@ if res == nil {
 }
 ```
 
-## Honoured options
+## Cfg fields (`rpc.GetTransactionCfg`)
 
-| Option | Default |
+| Field | Default |
 |---|---|
-| `WithCommitment` | server default |
-| `WithEncoding` | `EncodingBase64` |
-| `WithMaxSupportedTransactionVersion` | `0` (accept v0) |
+| `Commitment` | server default |
+| `Encoding` | `EncodingBase64` |
+| `MaxSupportedTransactionVersion` | `0` (accept v0) |
 
 ## Decoding the transaction body
 
@@ -116,9 +116,9 @@ for details.
 ## Example: audit a transaction's impact
 
 ```go
-res, err := c.GetTransaction(ctx, sig,
-    rpc.WithCommitment(solana.CommitmentFinalized),
-)
+res, err := c.GetTransaction(ctx, sig, rpc.GetTransactionCfg{
+    Commitment: solana.CommitmentFinalized,
+})
 if err != nil {
     return err
 }

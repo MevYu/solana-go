@@ -178,9 +178,18 @@ msg, err := solana.NewMessageV0(
     payer.PublicKey(),
     instructions,
     recentBlockhash,
-    []addresslookuptable.TableState{table1, table2},
+    []solana.LoadedAddressLookupTable{
+        {AccountKey: tableAddr1, Addresses: ts1.Addresses},
+        {AccountKey: tableAddr2, Addresses: ts2.Addresses},
+    },
 )
 ```
+
+`LoadedAddressLookupTable` lives in the root `solana` package
+(the encoding package can't import `solana` due to cycles, so
+the type travels with the message API). Build it from a
+`*addresslookuptable.TableState` returned by
+`addresslookuptable.DecodeTableState(rawData)`.
 
 The builder picks the static-vs-table split per account
 automatically: required signers and writable accounts the
@@ -188,10 +197,6 @@ runtime cannot resolve through a table stay in `AccountKeys`,
 read-only accounts present in any provided table move into
 `AddressTableLookups`. The builder validates that the total
 account count fits in `u8` and returns an error otherwise.
-
-To fetch and decode the on-chain ALT state into a `TableState`,
-use `c.GetAddressLookupTable(ctx, tableAddr)` or
-`addresslookuptable.DecodeTableState(rawData)`.
 
 ## Related
 

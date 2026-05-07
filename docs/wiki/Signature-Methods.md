@@ -10,7 +10,7 @@ Two signature-shaped queries live in
 func (c *rpc.Client) GetSignatureStatuses(
     ctx context.Context,
     sigs []solana.Signature,
-    opts ...rpc.CallOption,
+    cfg ...rpc.SignatureStatusesCfg,
 ) (*rpc.GetSignatureStatusesResult, error)
 
 type GetSignatureStatusesResult struct {
@@ -32,9 +32,9 @@ input; each entry is `nil` if the matching signature is not
 known to the node (either it never landed, or it has aged out
 of the node's recent cache).
 
-### Honoured options
+### Cfg fields (`rpc.SignatureStatusesCfg`)
 
-- `WithSearchTransactionHistory` — enables the transaction
+- `SearchTransactionHistory *bool` — enables the transaction
   history search on the server. Signatures that have aged out
   of the recent cache can only be located this way.
 
@@ -46,7 +46,7 @@ helper `rpc.DecodeTransactionError` parses it into a typed
 `*TransactionError` or `*InstructionError`:
 
 ```go
-import "github.com/MevYu/solana-go/helpers"
+import "github.com/MevYu/solana-go/rpc"
 
 if s := res.Statuses[0]; s != nil && s.Err != nil {
     err := rpc.DecodeTransactionError(s.Err)
@@ -66,8 +66,9 @@ for details.
 ```go
 func waitForSignature(ctx context.Context, c *rpc.Client, sig solana.Signature) error {
     for {
+        searchHistory := true
         res, err := c.GetSignatureStatuses(ctx, []solana.Signature{sig},
-            rpc.WithSearchTransactionHistory(true),
+            rpc.SignatureStatusesCfg{SearchTransactionHistory: &searchHistory},
         )
         if err != nil {
             return err
@@ -99,8 +100,8 @@ refresh and decoded error reporting.
 ```go
 func (c *Client) GetSignaturesForAddress(
     ctx context.Context,
-    addr PublicKey,
-    opts ...CallOption,
+    addr solana.PublicKey,
+    cfg ...rpc.SignaturesForAddressCfg,
 ) ([]*ConfirmedSignatureForAddress, error)
 
 type ConfirmedSignatureForAddress struct {
@@ -114,29 +115,27 @@ type ConfirmedSignatureForAddress struct {
 ```
 
 Fetches the transaction signatures that touched `addr`,
-ordered newest first. Use the pagination options to walk
-history:
+ordered newest first. Use the cfg fields to walk history:
 
-- **`WithLimit(n)`** — cap the result count. Server default is
-  1000.
-- **`WithBefore(sig)`** — return signatures strictly older than
-  `sig`.
-- **`WithUntil(sig)`** — return signatures strictly newer than
-  `sig`.
+- **`Limit *int`** — cap the result count. Server default is 1000.
+- **`Before string`** — return signatures strictly older than `Before`.
+- **`Until string`** — return signatures strictly newer than `Until`.
+- **`Commitment`**, **`MinContextSlot`**.
 
 ### Example: paginate an address's history
 
 ```go
-var all []*c.ConfirmedSignatureForAddress
-var before solana.Signature
+var all []*rpc.ConfirmedSignatureForAddress
+limit := 1000
+var before string
 
 for {
-    opts := []rpc.CallOption{rpc.WithLimit(1000)}
-    if !before.IsZero() {
-        opts = append(opts, rpc.WithBefore(before))
+    cfg := rpc.SignaturesForAddressCfg{Limit: &limit}
+    if before != "" {
+        cfg.Before = before
     }
 
-    page, err := c.GetSignaturesForAddress(ctx, addr, opts...)
+    page, err := c.GetSignaturesForAddress(ctx, addr, cfg)
     if err != nil {
         return err
     }
@@ -144,14 +143,9 @@ for {
         break
     }
     all = append(all, page...)
-
-    last, _ := solana.SignatureFromBase58(page[len(page)-1].Signature)
-    before = last
+    before = page[len(page)-1].Signature
 }
 ```
-
-Honoured options: `WithCommitment`, `WithMinContextSlot`,
-`WithLimit`, `WithBefore`, `WithUntil`.
 
 ## Related
 

@@ -33,7 +33,7 @@ Accepts no options.
 ### Example
 
 ```go
-sub, err := ws.SlotSubscribe(ctx)
+sub, err := wsc.SlotSubscribe(ctx)
 if err != nil {
     return err
 }
@@ -71,7 +71,7 @@ Accepts no options.
 ### Example
 
 ```go
-sub, err := ws.RootSubscribe(ctx)
+sub, err := wsc.RootSubscribe(ctx)
 if err != nil {
     return err
 }

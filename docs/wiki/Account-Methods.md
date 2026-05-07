@@ -15,16 +15,16 @@ func (c *rpc.Client) GetAccountInfo(
     ctx context.Context,
     pubkey solana.PublicKey,
     cfg ...rpc.AccountInfoCfg,
-) (*c.GetAccountInfoResult, error)
+) (*rpc.GetAccountInfoResult, error)
 
 type GetAccountInfoResult struct {
     Slot    uint64
     Account *solana.AccountInfo // nil if the account does not exist
 }
 
-type rpc.AccountInfoCfg struct {
-    Commitment     CommitmentLevel
-    Encoding       Encoding // default: EncodingBase64
+type AccountInfoCfg struct {
+    Commitment     solana.CommitmentLevel
+    Encoding       solana.Encoding // default: EncodingBase64
     DataSlice      *DataSlice
     MinContextSlot *uint64
 }
@@ -78,7 +78,7 @@ func (c *rpc.Client) GetMultipleAccounts(
     ctx context.Context,
     addresses []solana.PublicKey,
     cfg ...rpc.AccountInfoCfg,
-) (*c.GetMultipleAccountsResult, error)
+) (*rpc.GetMultipleAccountsResult, error)
 
 type GetMultipleAccountsResult struct {
     Slot     uint64
@@ -90,19 +90,19 @@ A single round trip fetches many accounts. The result slice has
 the same length as the input and preserves order; each entry is
 `nil` if the matching account does not exist.
 
-### Honoured options
+### Cfg fields
 
-Same as `GetAccountInfo`: `WithCommitment`, `WithEncoding`,
-`WithDataSlice`, `WithMinContextSlot`.
+Same `AccountInfoCfg` as `GetAccountInfo`: `Commitment`,
+`Encoding`, `DataSlice`, `MinContextSlot`.
 
 ### Example
 
 ```go
 addrs := []solana.PublicKey{a, b, c}
-res, err := c.GetMultipleAccounts(ctx, addrs,
-    rpc.WithEncoding(solana.EncodingBase64),
-    rpc.WithCommitment(solana.CommitmentConfirmed),
-)
+res, err := c.GetMultipleAccounts(ctx, addrs, rpc.AccountInfoCfg{
+    Encoding:   solana.EncodingBase64,
+    Commitment: solana.CommitmentConfirmed,
+})
 if err != nil {
     return err
 }

@@ -5,9 +5,9 @@ The `encoding/` package layers three styles on top of one shared
 
 | Scenario | Write | Read |
 |---|---|---|
-| Fixed-shape instruction data | `encoding.New().U8(tag).U64(amount).Buf()` | `r := encoding.NewReader(data); v := r.U64(); ...` |
+| Fixed-shape instruction data | `encoding.New().U8(tag).U64(amount).Bytes()` | `r := encoding.NewReader(data); v := r.U64(); ...` |
 | Hand-crafted speed paths | `Encoder.WriteUint8` / `WriteBytes` / `WriteShortvec` (low-level) | `Decoder.ReadUint8` / `ReadBytes` / `ReadShortvec` |
-| Reflection over `bin:"…"` tagged structs | not provided (always hand-write builders) | `encoding.DecodeTo(data, &v)` |
+| Reflective decode of plain Go structs | not provided (always hand-write builders) | `encoding.BinDecodeTo(data, &v)` (bincode) / `encoding.BorshDecodeTo(data, &v)` (Borsh) |
 
 The chained `Encoder` (in `encoding/builder.go`) and `Reader`
 (in `encoding/reader.go`) are wrappers around `Encoder` /
@@ -27,14 +27,10 @@ data := encoding.New().
     U64(amount).
     Bool(flag).
     Raw(pubkey[:]).
-    Buf()
+    Bytes()
 
 // 2. Precise capacity to avoid even the one-time grow.
-encoding.NewEncoder(estimatedSize)
-
-// 3. Pooled (sync.Pool) — for hot paths; remember to Release.
-e := encoding.AcquireEncoder(64)
-defer encoding.ReleaseEncoder(e)
+e := encoding.NewEncoder(estimatedSize)
 ```
 
 Method conventions:
@@ -42,17 +38,16 @@ Method conventions:
 - numerics — `U8`, `U16`, `U32`, `U64`, `I8`, `I16`, `I32`,
   `I64`, `U128c`, `U256c`, `Bool`
 - bytes-shaped — `Raw(b []byte)` (no length prefix),
-  `Discriminator([8]byte)` (Anchor 8-byte tag),
-  `Str(s string)` (bincode `u64`-prefixed)
+  `StrU64(s string)` (bincode `u64`-prefixed string)
 - Rust `Option<T>` family — `OptU8`, `OptU32`, `OptU64`,
-  `OptI64`, `OptU128`, `OptBool`, `OptRaw`: 1-byte tag +
+  `OptI64`, `OptBool`, `OptRaw`: 1-byte tag +
   payload when non-nil. This is the **bincode** form of
   `Option<T>`. Token-2022 extensions that use spl-pod's
   `OptionalNonZeroPubkey` (32 bytes raw, zero == None) are
   not encoded with `OptRaw` — they emit raw 32-byte values
   with the zero pubkey representing absence.
 
-Buffer length-prefixed `Vec<T>` is **not** wrapped because the
+Length-prefixed `Vec<T>` is **not** wrapped because the
 prefix differs across programs (bincode = `u64`,
 Borsh = `u32`, ALT.Extend = `u32`, …); write the prefix
 explicitly with `U32(uint32(n))` / `U64(uint64(n))` and loop
@@ -62,6 +57,12 @@ Pubkeys in instruction data go through `Raw(pk[:])`; there is
 intentionally no `Pubkey()` method on the encoder because the
 encoding package must not import the root `solana` package
 (cycle: root imports `encoding/`).
+
+`Encoder.Bytes()` returns the buffer; `Encoder.Len()` reports
+the current length. The package exposes no `sync.Pool` —
+callers that allocate one `Encoder` per instruction are
+already on the fast path (escape analysis stack-allocates
+common cases; pooling did not pay off in benchmarks).
 
 ## Reader (sticky-error decoder)
 
@@ -89,36 +90,43 @@ additionally requires the buffer was exhausted (returns
 - `Bytes32()` / `Bytes64()` for Pubkey/Signature-shaped fields
 - `Bytes(n)` for variable-length slices
 - `Read(out []byte)` to fill an existing destination
-- `Skip(n)`, `Shortvec()`, `Str()`
+- `Skip(n)`, `StrU64()`
 
-`encoding.FromDecoder(d)` upgrades an existing `*Decoder`
-(with established position) to a `Reader` for the rest of the
-stream.
+`Reader.Decoder()` returns the underlying `*Decoder`; `r.Pos()`
+and `r.Remaining()` forward to it.
 
 ## Reflection-based decode
 
-`encoding.DecodeTo(data, &v)` (and `Decoder.DecodeTo(&v)`)
-walks `v` reflectively, respecting `bin:"…"` field tags. Use
-this when:
+`encoding.BinDecodeTo(data, &v)` (bincode, u64-prefixed
+`Vec<T>` / `String`) and `encoding.BorshDecodeTo(data, &v)`
+(Borsh, u32-prefixed) walk `v` reflectively, decoding fields
+in declaration order according to their Go types. Use these
+when:
 
 - `v` is user-defined, possibly nested, with optional `*T`
   and slices.
 - A one-shot decoder is more readable than 20 lines of
   `Reader` chains.
 
-For pure performance, register a hand-written fast path with
-`encoding.RegisterDecoder[T]` (the `*solana.PublicKey`,
-`Hash`, `Signature`, `U128`, `U256` types are pre-registered).
-Types implementing `encoding.Unmarshaler`
-(`UnmarshalFromDecoder(*Decoder) error`) are also dispatched
-directly without reflecting into their fields — this is how
-`*Transaction`, `*Message`, `*Entry`, and the `Uint128/256`
-types plug in.
+`NewDecoder(b).UseBorsh().DecodeTo(&v)` is the lower-level
+form when you already hold a `*Decoder` and want to switch
+prefix width. `BinDecodeTo` and `BorshDecodeTo` differ
+**only** in the `Vec<T>` / `String` length-prefix width
+(u64 vs u32); everything else (struct walking, fixed-size
+arrays, primitives) is identical.
 
-`encoding.BorshDecodeTo(data, &v)` is the Borsh-specific
-counterpart, with a per-decoder default prefix length so
-nested `Vec<T>` and `Option<T>` decode with the right
-prefix (`u32` for Borsh, `u64` for bincode).
+There are no struct tags. Field order in the Go struct must
+match the wire layout. Unexported fields are skipped (handy
+for in-memory bookkeeping); for an exported field that should
+not be on the wire, use a wrapper struct that holds only the
+serialised subset.
+
+For pure performance, types implementing
+`encoding.Unmarshaler` (`UnmarshalFromDecoder(*Decoder) error`)
+are dispatched directly without reflecting into their fields —
+this is how `*Transaction`, `*Message`, `*Entry`, and the
+`Uint128/256` types plug in. Implement `Unmarshaler` on a type
+you control to bypass the reflective plan.
 
 Reflection-based **encode** is intentionally not provided;
 all instruction builders are hand-written in

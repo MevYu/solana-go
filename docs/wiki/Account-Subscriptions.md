@@ -11,8 +11,8 @@ polling.
 func (c *ws.Client) AccountSubscribe(
     ctx context.Context,
     pubkey solana.PublicKey,
-    opts ...rpc.CallOption,
-) (*c.AccountSubscription, error)
+    cfg ...rpc.CommitmentWithEncodingCfg,
+) (*ws.AccountSubscription, error)
 
 type AccountSubscription struct {
     *ws.Subscription
@@ -27,10 +27,10 @@ type AccountNotification struct {
 }
 ```
 
-## Honoured options
+## Cfg fields (`rpc.CommitmentWithEncodingCfg`)
 
-- `WithCommitment`
-- `WithEncoding` (default: `EncodingBase64`)
+- `Commitment`
+- `Encoding` (default: `EncodingBase64`)
 
 ## Example
 
@@ -45,12 +45,12 @@ wsc, err := ws.DialWebSocket(ctx, "wss://api.mainnet-beta.solana.com")
 if err != nil {
     return err
 }
-defer ws.Close()
+defer wsc.Close()
 
 wallet, _ := solana.PublicKeyFromBase58("...")
-sub, err := ws.AccountSubscribe(ctx, wallet,
-    rpc.WithCommitment(solana.CommitmentConfirmed),
-)
+sub, err := wsc.AccountSubscribe(ctx, wallet, rpc.CommitmentWithEncodingCfg{
+    Commitment: solana.CommitmentConfirmed,
+})
 if err != nil {
     return err
 }

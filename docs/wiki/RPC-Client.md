@@ -41,15 +41,25 @@ c := rpc.NewClientFromTransport(j)
 ```
 
 The underlying transport is reachable via `c.Client` because
-`*rpc.Client` embeds `*jsonrpc.Client`. As a consequence,
-`c.CallContext(ctx, &out, method, params...)` is promoted directly
-without ceremony.
+`*rpc.Client` embeds `*jsonrpc.Client`. To call an RPC method
+that the typed layer does not yet wrap, use the generic
+`jsonrpc.CallContext[T]` free function (Go forbids type
+parameters on methods, so this lives as a free function rather
+than a method on `*Client`):
+
+```go
+out, err := jsonrpc.CallContext[MyResult](ctx, c.Client, "myMethod", arg1, arg2)
+```
+
+For Solana's `{context:{slot}, value:T}` envelope, instantiate
+`T = jsonrpc.ContextValue[X]` and read `out.Context.Slot` /
+`out.Value`.
 
 ## Two layers
 
 | Layer | Package | Purpose |
 |---|---|---|
-| Transport | `jsonrpc` | JSON-RPC 2.0 over HTTP, pluggable codec, retry policy, typed `*ErrRPC`, generic `CallContextValue[T]` / `ContextValue[T]`, `Is*` classifiers |
+| Transport | `jsonrpc` | JSON-RPC 2.0 over HTTP, pluggable codec, retry policy, typed `*ErrRPC`, generic `CallContext[T]` + `ContextValue[T]` envelope, `Is*` classifiers |
 | Typed wrappers | `rpc` | One Go method per RPC method with typed params and results — `cfg ...rpc.XxxCfg` instead of functional options |
 
 The typed layer never imports `encoding/json` on the decode hot path
@@ -130,24 +140,29 @@ func (c *Client) GetXxx(ctx context.Context, arg Foo, cfg ...rpc.GetXxxCfg) (*Ge
 ## The context-value envelope
 
 Solana RPC wraps many results in `{context:{slot}, value:T}`. The
-`jsonrpc` package exposes two helpers so the typed wrappers can
-decode it without per-method boilerplate:
+`jsonrpc` package exposes the envelope type plus a single-pass
+generic call so typed wrappers decode it without per-method
+boilerplate:
 
 ```go
-// Generic round-trip helper:
-slot, v, err := jsonrpc.CallContextValue[uint64](ctx, c.Client, "getBalance", params)
+// Single-pass generic call. For envelope-wrapped responses,
+// instantiate T = jsonrpc.ContextValue[X]:
+env, err := jsonrpc.CallContext[jsonrpc.ContextValue[uint64]](
+    ctx, c.Client, "getBalance", pubkey)
+slot := env.Context.Slot
+value := env.Value
 
 // Envelope type, for callsites that own decoding (e.g. WebSocket
 // notification dispatchers):
-var env jsonrpc.ContextValue[*solana.AccountInfo]
-_ = codec.Unmarshal(raw, &env)
+var n jsonrpc.ContextValue[*solana.AccountInfo]
+_ = codec.Unmarshal(raw, &n)
 ```
 
-`CallContextValue[T]` decodes the entire response — JSON-RPC
-envelope, context slot, and typed value — in a **single**
-`codec.Unmarshal` call, halving codec work versus the two-pass
-`CallContext` path used by methods whose response is not
-context-wrapped (`getInflationRate`, `getEpochInfo`, …).
+`CallContext[T]` decodes the entire response — JSON-RPC envelope,
+context slot, and typed value — in a **single** `codec.Unmarshal`
+call. Methods whose response is not context-wrapped
+(`getInflationRate`, `getEpochInfo`, …) instantiate `T` directly
+on the result type.
 
 ## Errors
 
@@ -183,5 +198,6 @@ Covered methods, grouped by page:
 - **WebSocket subscriptions** — [WebSocket Client](WebSocket-Client)
 
 For anything not yet covered typed, call through
-`c.CallContext(ctx, &out, method, params...)` directly, or use
-`jsonrpc.CallContextValue[T]` for `{context, value}` responses.
+`jsonrpc.CallContext[T](ctx, c.Client, method, params...)`
+directly. For `{context, value}` responses, instantiate
+`T = jsonrpc.ContextValue[X]`.
