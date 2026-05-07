@@ -409,6 +409,45 @@ func TestDecodeUnsupportedType(t *testing.T) {
 	}
 }
 
+// `bin:"-"` lets domain structs carry non-wire state (caches, derived
+// metadata, or kinds the reflective decoder doesn't support such as map)
+// alongside on-wire fields. Skipped fields stay at their zero value.
+func TestDecodeSkipTag(t *testing.T) {
+	type domain struct {
+		OnWire1 uint32
+		Cache   map[string]uint64 `bin:"-"` // unsupported kind, must be skipped
+		OnWire2 uint8
+		Derived [16]byte `bin:"-"`
+		Note    string   `bin:"-"`
+	}
+	enc := encoding.NewEncoder(8)
+	enc.WriteUint32(0xdeadbeef)
+	enc.WriteUint8(0x42)
+
+	got := domain{
+		Cache:   map[string]uint64{"prefilled": 1},
+		Note:    "preserved",
+		Derived: [16]byte{0xff},
+	}
+	if err := encoding.NewDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if got.OnWire1 != 0xdeadbeef || got.OnWire2 != 0x42 {
+		t.Fatalf("wire fields decoded wrong: %+v", got)
+	}
+	// Skipped fields keep whatever the caller had set — the decoder must
+	// not zero them out, only refuse to descend into them.
+	if got.Cache["prefilled"] != 1 {
+		t.Fatalf("Cache was clobbered: %v", got.Cache)
+	}
+	if got.Note != "preserved" {
+		t.Fatalf("Note was clobbered: %q", got.Note)
+	}
+	if got.Derived[0] != 0xff {
+		t.Fatalf("Derived was clobbered: %x", got.Derived)
+	}
+}
+
 // Decode the same type three times in a row — proves the plan-cache returns
 // a working plan on every hit (regression guard for decodePlanCache).
 func TestDecodeCacheIsHit(t *testing.T) {

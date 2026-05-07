@@ -160,6 +160,12 @@ func emitValue(p *decodePlan, t reflect.Type, off uintptr) error {
 			if !f.IsExported() {
 				continue
 			}
+			// `bin:"-"` opts a field out of reflective decoding so domain
+			// structs can carry non-wire state (caches, derived data,
+			// unsupported kinds like maps) alongside on-wire fields.
+			if f.Tag.Get("bin") == "-" {
+				continue
+			}
 			if err := emitValue(p, f.Type, off+f.Offset); err != nil {
 				return fmt.Errorf("%s.%s: %w", t.Name(), f.Name, err)
 			}
