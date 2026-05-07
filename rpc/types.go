@@ -26,7 +26,7 @@ type GetSignatureStatusesResult struct {
 // SimulationReturnData is the data returned by the last instruction of a simulated transaction.
 type SimulationReturnData struct {
 	ProgramID solana.PublicKey   `json:"programId"`
-	Data      solana.AccountData `json:"data"`
+	Data      solana.EncodedData `json:"data"`
 }
 
 // SimulateResult is the decoded response of SimulateTransaction. Slot
@@ -69,7 +69,7 @@ type TransactionMeta struct {
 
 // BlockTransaction is a single entry in the transactions array of a GetBlock response.
 type BlockTransaction struct {
-	Transaction solana.AccountData `json:"transaction"`
+	Transaction solana.EncodedData `json:"transaction"`
 	Meta        *TransactionMeta   `json:"meta"`
 	Version     any                `json:"version"`
 }
