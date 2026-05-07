@@ -19,8 +19,6 @@ const (
 	opI32
 	opI64
 	opBool
-	opU128
-	opU256
 	opFixedBytes
 	opFixedArray
 	opByteSlice
@@ -260,18 +258,6 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		default:
 			return fmt.Errorf("encoding: invalid bool byte 0x%02x", b)
 		}
-	case opU128:
-		b, err := d.ReadBytes(16)
-		if err != nil {
-			return err
-		}
-		*(*[16]byte)(ptr) = *(*[16]byte)(unsafe.Pointer(&b[0]))
-	case opU256:
-		b, err := d.ReadBytes(32)
-		if err != nil {
-			return err
-		}
-		*(*[32]byte)(ptr) = *(*[32]byte)(unsafe.Pointer(&b[0]))
 	case opFixedBytes:
 		b, err := d.ReadBytes(int(o.count))
 		if err != nil {

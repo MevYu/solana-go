@@ -324,6 +324,139 @@ func TestDecodeShortBuffer(t *testing.T) {
 }
 
 // ----------------------------------------------------------------------------
+// Nested struct, skip tag, primitive slice, error paths, cache behaviour
+// ----------------------------------------------------------------------------
+
+type nestedStruct struct {
+	Outer uint64
+	Inner primStruct
+}
+
+type skipStruct struct {
+	Keep  uint8
+	Skip  uint8 `bin:"-"`
+	Keep2 uint16
+}
+
+type primSliceStruct struct {
+	Items []uint32
+}
+
+func encodePrimStruct(enc *encoding.Encoder, s primStruct) {
+	enc.WriteUint8(s.A)
+	enc.WriteUint16(s.B)
+	enc.WriteUint32(s.C)
+	enc.WriteUint64(s.D)
+	enc.WriteInt32(s.E)
+	if s.F {
+		enc.WriteUint8(1)
+	} else {
+		enc.WriteUint8(0)
+	}
+}
+
+func TestDecodeNestedStruct(t *testing.T) {
+	inner := primStruct{A: 9, B: 999, C: 1, D: 2, E: 0, F: false}
+	enc := encoding.NewEncoder(64)
+	enc.WriteUint64(42)
+	encodePrimStruct(enc, inner)
+
+	var got nestedStruct
+	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if got.Outer != 42 || got.Inner != inner {
+		t.Fatalf("nested mismatch: %+v", got)
+	}
+}
+
+// `bin:"-"` skips the field entirely; the cursor must not advance for it.
+func TestDecodeSkipTag(t *testing.T) {
+	enc := encoding.NewEncoder(8)
+	enc.WriteUint8(1)
+	enc.WriteUint16(500)
+
+	d := encoding.NewBinDecoder(enc.Bytes())
+	var got skipStruct
+	if err := d.DecodeTo(&got); err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if got.Keep != 1 || got.Keep2 != 500 || got.Skip != 0 {
+		t.Fatalf("skip-tag: %+v", got)
+	}
+	if d.Remaining() != 0 {
+		t.Errorf("remaining = %d", d.Remaining())
+	}
+}
+
+// Slice of primitive (non-byte) — exercises opSlice with a leaf-only sub-plan,
+// distinct from TestDecodeStructSlice (slice of struct) and TestDecodeByteSlice
+// (which hits the opByteSlice fast path).
+func TestDecodePrimitiveSlice(t *testing.T) {
+	items := []uint32{111, 222, 333}
+	enc := encoding.NewEncoder(32)
+	enc.WriteUint64(uint64(len(items)))
+	for _, v := range items {
+		enc.WriteUint32(v)
+	}
+
+	var got primSliceStruct
+	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if len(got.Items) != len(items) {
+		t.Fatalf("len = %d", len(got.Items))
+	}
+	for i, v := range items {
+		if got.Items[i] != v {
+			t.Errorf("[%d] = %d, want %d", i, got.Items[i], v)
+		}
+	}
+}
+
+func TestDecodeRequiresNonNilPointer(t *testing.T) {
+	d := encoding.NewBinDecoder([]byte{1, 2, 3})
+	if err := d.DecodeTo(42); err == nil {
+		t.Fatal("expected error for non-pointer")
+	}
+	var x *primStruct
+	if err := d.DecodeTo(x); err == nil {
+		t.Fatal("expected error for nil pointer")
+	}
+}
+
+func TestDecodeUnsupportedType(t *testing.T) {
+	type S struct{ F float32 }
+	d := encoding.NewBinDecoder([]byte{1, 2, 3, 4})
+	var got S
+	if err := d.DecodeTo(&got); err == nil {
+		t.Fatal("expected error for unsupported float32")
+	}
+}
+
+// Decode the same type three times in a row — proves the plan-cache returns
+// a working plan on every hit (regression guard for decodePlanCache).
+func TestDecodeCacheIsHit(t *testing.T) {
+	enc := encoding.NewEncoder(32)
+	enc.WriteUint8(7)
+	enc.WriteUint16(8)
+	enc.WriteUint32(9)
+	enc.WriteUint64(10)
+	enc.WriteInt32(0)
+	enc.WriteUint8(0)
+	buf := enc.Bytes()
+	for i := 0; i < 3; i++ {
+		var got primStruct
+		if err := encoding.NewBinDecoder(buf).DecodeTo(&got); err != nil {
+			t.Fatalf("call %d: %v", i, err)
+		}
+		if got.A != 7 || got.B != 8 || got.C != 9 || got.D != 10 {
+			t.Fatalf("call %d: wrong values %+v", i, got)
+		}
+	}
+}
+
+// ----------------------------------------------------------------------------
 // Vec<Entry> decoding — the workload the user actually cares about
 // ----------------------------------------------------------------------------
 
