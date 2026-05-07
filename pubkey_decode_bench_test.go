@@ -6,6 +6,13 @@ import (
 	"github.com/MevYu/solana-go/encoding"
 )
 
+// These benches now measure the reflective baseline only — leaf-type
+// override paths (RegisterDecoder + opCallFunc) were deleted after bench
+// data showed they were net-negative on [N]byte-backed named types
+// (1.5–6.5% slower under load due to BTB pressure on the indirect call
+// vs the inlined opFixedBytes switch arm). Kept as regression catchers
+// for the plan-cache / opFixedBytes path.
+
 // Account-like struct: 4 PublicKey + 2 u64 + 1 u32, mimics the leaf shape
 // of a token-program account or AMM state.
 type pubkeyBenchAccount struct {
