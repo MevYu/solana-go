@@ -3,68 +3,42 @@ package encoding
 import (
 	"reflect"
 	"strings"
-	"sync"
-	"unsafe"
 )
 
 // Unmarshaler lets a type plug in hand-written decoding logic and bypass
 // reflection entirely. Types whose addressable value satisfies this interface
 // are dispatched directly by Decode; reflection never descends into them.
-type Unmarshaler interface {
-	UnmarshalFromDecoder(d *Decoder) error
-}
-
-// decoderFunc is the type of hand-written fast-path decoders stored in the
-// registry. The pointer is a typed *T that the registration wrapper has
-// already converted from an unsafe.Pointer, so individual decoders do not
-// juggle unsafe themselves.
-type decoderFunc func(d *Decoder, ptr unsafe.Pointer) error
-
-// registry maps reflect.Type to a hand-written decoder. Populated by
-// RegisterDecoder; consulted by Decode before any reflective walking.
-var registry sync.Map // map[reflect.Type]decoderFunc
-
-// RegisterDecoder associates a hand-written decoder with type T. When Decode
-// encounters a value of type T — directly, as a struct field, slice element,
-// pointer target, or inside a larger containing type — fn is called instead
-// of walking the type reflectively.
 //
-// Intended use is during package init. RegisterDecoder is safe for concurrent
-// use, but registering a second decoder for the same type replaces the first.
-//
-// The wrapper handles the unsafe.Pointer → *T conversion so callers write
-// normal typed Go.
-//
-// When registration helps vs hurts, by type shape:
+// When implementing helps vs hurts, by type shape:
 //
 //   - Leaf [N]byte-backed named types (PublicKey, Hash, Signature, U128,
-//     U256, …): do NOT register. The reflective fast path emits opFixedBytes
-//     for them — a single ReadBytes(N) + memmove the compiler inlines through
-//     the op switch. opCallFunc dispatches through a function pointer that
-//     cannot inline, so leaf registration is 1.5–5% SLOWER under concurrent
-//     load (the gap widens with goroutine count due to BTB pressure).
+//     U256, …): do NOT implement. The plan-cache emits opFixedBytes for
+//     them — a single ReadBytes(N) + memmove the compiler inlines through
+//     the op switch. An UnmarshalFromDecoder method dispatches through an
+//     interface that cannot inline, so leaf overrides are 1.5–5% SLOWER
+//     under concurrent load (BTB pressure widens the gap with goroutine
+//     count).
 //
 //   - Large composite structs (10+ exported fields, account-shaped):
-//     registration CAN help. The reflective walker pays per-field op-dispatch
-//     cost; a hand-written closure that reads the whole struct in one shot
+//     implementing CAN help. The reflective walker pays per-field op-dispatch
+//     cost; a hand-written method that reads the whole struct in one shot
 //     amortises that to zero. Bench shows 5–15% speedup on a ~30-field AMM
 //     pool struct (see poolstate_decode_bench_test.go for methodology).
 //     Whether the win materialises depends on the field-count vs decode-cost
 //     ratio — bench before committing.
 //
-//   - Custom wire formats / layout transformations / third-party types
-//     that can't implement Unmarshaler / post-decode validation:
-//     register without question — no other path expresses these.
-func RegisterDecoder[T any](fn func(*Decoder, *T) error) {
-	var zero T
-	t := reflect.TypeOf(zero)
-	if t == nil {
-		panic("encoding.RegisterDecoder: T must be a concrete non-interface type")
-	}
-	wrap := decoderFunc(func(d *Decoder, p unsafe.Pointer) error {
-		return fn(d, (*T)(p))
-	})
-	registry.Store(t, wrap)
+//   - Custom wire formats, layout transformations, post-decode validation:
+//     implement without question — no other path expresses these.
+type Unmarshaler interface {
+	UnmarshalFromDecoder(d *Decoder) error
+}
+
+// unmarshalerReflectType returns the reflect.Type for the Unmarshaler
+// interface, used by the plan compiler when checking whether *T satisfies
+// it. Wrapped in a function so the literal `(*Unmarshaler)(nil)` magic
+// only appears in one place.
+func unmarshalerReflectType() reflect.Type {
+	return reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 }
 
 // sizePrefix identifies the length-prefix encoding for a slice or string.
@@ -152,14 +126,11 @@ func (d *Decoder) readLen(p sizePrefix) (uint64, error) {
 // is a drop-in replacement for the gagliardetto/binary NewBinDecoder+Decode
 // pattern.
 //
-// Before reflecting, DecodeTo consults two escape hatches in order:
-//  1. A hand-written decoder registered via RegisterDecoder for the target
-//     type — library-provided fast paths for PublicKey, Transaction, etc.
-//  2. The Unmarshaler interface — types that implement it are dispatched
-//     directly without reflecting into their fields.
+// If the target type (or *T) implements Unmarshaler, the plan-cache emits
+// a single dispatch op and reflection never descends into the type's fields.
 //
-// For reflected values, the supported kinds are: uint8/16/32/64, int8/16/32/64,
-// bool, [N]byte and [N]T fixed arrays, []byte and []T slices (length-prefixed),
+// Otherwise the supported kinds are: uint8/16/32/64, int8/16/32/64, bool,
+// [N]byte and [N]T fixed arrays, []byte and []T slices (length-prefixed),
 // string (length-prefixed), pointer (bincode Option: 1-byte tag + optional
 // payload), and struct (recursively, respecting `bin:"..."` field tags).
 //

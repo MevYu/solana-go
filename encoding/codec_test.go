@@ -279,43 +279,7 @@ func TestDecodeFixedArray(t *testing.T) {
 	}
 }
 
-// Registered decoder short-circuits the reflective walk even when the type
-// appears as a nested field.
-type regTarget struct {
-	N uint32
-}
-
-func init() {
-	encoding.RegisterDecoder[regTarget](func(d *encoding.Decoder, p *regTarget) error {
-		v, err := d.ReadUint32()
-		if err != nil {
-			return err
-		}
-		// Sentinel: prove the hand-written path ran by inverting the value.
-		p.N = ^v
-		return nil
-	})
-}
-
-type outerReg struct {
-	Prefix uint8
-	R      regTarget
-}
-
-func TestRegisteredDecoderTakesPrecedence(t *testing.T) {
-	enc := encoding.NewEncoder(8)
-	enc.WriteUint8(0x11)
-	enc.WriteUint32(0xAAAAAAAA)
-	var got outerReg
-	if err := encoding.NewBinDecoder(enc.Bytes()).DecodeTo(&got); err != nil {
-		t.Fatalf("Decode: %v", err)
-	}
-	if got.Prefix != 0x11 || got.R.N != ^uint32(0xAAAAAAAA) {
-		t.Fatalf("registered decoder not called: %+v", got)
-	}
-}
-
-// Unmarshaler interface dispatch without registry registration.
+// Unmarshaler interface dispatch.
 type ifaceTarget struct {
 	marker uint64
 }

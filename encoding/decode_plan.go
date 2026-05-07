@@ -27,7 +27,6 @@ const (
 	opSlice
 	opString
 	opPointer
-	opCallFunc
 	opCallIface
 )
 
@@ -40,7 +39,6 @@ type op struct {
 	sliceType reflect.Type
 	elemType  reflect.Type
 	sub       *decodePlan
-	fn        decoderFunc
 	ifaceType reflect.Type
 }
 
@@ -53,10 +51,6 @@ type decodePlan struct {
 // decodePlanCache memoises compiled plans keyed by reflect.Type so each
 // type pays the reflective compile cost (~2.7us / 4KB) only once.
 var decodePlanCache sync.Map // map[reflect.Type]*decodePlan
-
-// Cached so compilation can test "*T implements Unmarshaler" without
-// allocating a fresh interface type descriptor per type.
-var unmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 
 // decodePlanFor returns a compiled plan for t, compiling on first use.
 // Plans built with non-default tag options bypass the cache because
@@ -89,11 +83,7 @@ func compileDecodePlan(t reflect.Type, opts tagOpts) (*decodePlan, error) {
 }
 
 func emitValue(p *decodePlan, t reflect.Type, off uintptr, opts tagOpts) error {
-	if fn, ok := registry.Load(t); ok {
-		p.ops = append(p.ops, op{kind: opCallFunc, offset: off, fn: fn.(decoderFunc)})
-		return nil
-	}
-	if reflect.PointerTo(t).Implements(unmarshalerType) {
+	if reflect.PointerTo(t).Implements(unmarshalerReflectType()) {
 		p.ops = append(p.ops, op{kind: opCallIface, offset: off, ifaceType: t})
 		return nil
 	}
@@ -360,10 +350,6 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 			}
 		default:
 			return fmt.Errorf("encoding: invalid Option tag 0x%02x", tag)
-		}
-	case opCallFunc:
-		if err := o.fn(d, ptr); err != nil {
-			return err
 		}
 	case opCallIface:
 		rv := reflect.NewAt(o.ifaceType, ptr)

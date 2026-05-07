@@ -7,6 +7,20 @@ import (
 	"github.com/MevYu/solana-go/encoding"
 )
 
+// Bench results — arm64, GOMAXPROCS=20, 10 runs each, mean ns/op:
+//
+//                          reflective    Unmarshaler    speedup
+//   PoolState (seq)            350.5         334.5       −4.6%
+//   PoolStateParallel          220.1         185.4      −15.8%
+//   PoolStateHighParallel      199.9         186.0       −7.0%
+//
+// Allocations identical (2/op). The Unmarshaler win comes from collapsing
+// 30 op-switch dispatches into one closure; the reflective baseline still
+// benefits from decodePlanCache (compile-once-per-type), so this isn't a
+// "reflection vs no reflection" comparison — it's "30 ops vs 1 op".
+//
+// Repro: go test -run=^$ -bench='BenchmarkDecodePoolState' -benchmem -count=10 .
+
 // poolState mimics a realistic AMM-pool state struct (Raydium-CLMM /
 // Whirlpool / Meteora shape): 8-byte discriminator, several PublicKey
 // references (mints, vaults, owner, oracle), two U128 fields (sqrt-price,
@@ -55,15 +69,16 @@ type poolState struct {
 }
 
 // poolStateHand has identical wire layout to poolState; we keep them as
-// distinct Go types so RegisterDecoder can target one without affecting
-// the other (registry is keyed by reflect.Type).
+// distinct Go types so the Unmarshaler dispatch can target one without
+// affecting the other (the plan compiler keys interface satisfaction off
+// reflect.Type).
 type poolStateHand poolState
 
-// decodePoolStateHand is the hand-written single-shot decoder registered
-// for poolStateHand. It reads every field directly via Decoder methods —
-// no reflection, no op-switch dispatch. This is what RegisterDecoder
-// should buy you when registering an entire account struct.
-func decodePoolStateHand(d *encoding.Decoder, p *poolStateHand) error {
+// UnmarshalFromDecoder is the hand-written single-shot decoder for
+// poolStateHand. It reads every field directly via Decoder methods —
+// no reflection, no op-switch dispatch. This is what implementing
+// Unmarshaler buys you when the receiver is an account-shaped struct.
+func (p *poolStateHand) UnmarshalFromDecoder(d *encoding.Decoder) error {
 	// Discriminator [8]byte
 	b, err := d.ReadBytes(8)
 	if err != nil {
@@ -189,10 +204,6 @@ func decodePoolStateHand(d *encoding.Decoder, p *poolStateHand) error {
 	return nil
 }
 
-func init() {
-	encoding.RegisterDecoder[poolStateHand](decodePoolStateHand)
-}
-
 func makePoolStatePayload() []byte {
 	e := encoding.NewEncoder(400)
 	for i := 0; i < 8; i++ {
@@ -293,7 +304,7 @@ func BenchmarkDecodePoolStateHighParallel(b *testing.B) {
 	})
 }
 
-// Hand-written + RegisterDecoder path (poolStateHand IS registered).
+// Hand-written + Unmarshaler interface path.
 
 func BenchmarkDecodePoolStateHand(b *testing.B) {
 	data := makePoolStatePayload()
