@@ -45,23 +45,12 @@ func New() *Encoder {
 	return &Encoder{buf: make([]byte, 0, 128)}
 }
 
-// Wrap returns an Encoder whose buffer is the slice b truncated to
-// zero length. The underlying array is reused, so callers who want to
-// preserve b's contents must not write through the returned Encoder.
-func Wrap(b []byte) *Encoder {
-	return &Encoder{buf: b[:0]}
-}
-
 // Bytes returns the accumulated bytes. The returned slice aliases the
 // internal buffer and is valid only until the next write.
 func (e *Encoder) Bytes() []byte { return e.buf }
 
 // Len returns the number of bytes written so far.
 func (e *Encoder) Len() int { return len(e.buf) }
-
-// Reset truncates the buffer length to zero, keeping the allocated
-// capacity so the Encoder can be reused for a new encoding run.
-func (e *Encoder) Reset() { e.buf = e.buf[:0] }
 
 // WriteUint8 appends a single byte.
 func (e *Encoder) WriteUint8(v uint8) {
