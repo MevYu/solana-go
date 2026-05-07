@@ -39,56 +39,56 @@ type op struct {
 	elemSize  uintptr
 	sliceType reflect.Type
 	elemType  reflect.Type
-	sub       *decodeOps
+	sub       *decodePlan
 	fn        decoderFunc
 	ifaceType reflect.Type
 }
 
-type decodeOps struct {
+type decodePlan struct {
 	ops  []op
 	typ  reflect.Type
 	size uintptr
 }
 
-// decodeOpsCache memoises compiled plans keyed by reflect.Type so each
+// decodePlanCache memoises compiled plans keyed by reflect.Type so each
 // type pays the reflective compile cost (~2.7us / 4KB) only once.
-var decodeOpsCache sync.Map // map[reflect.Type]*decodeOps
+var decodePlanCache sync.Map // map[reflect.Type]*decodePlan
 
 // Cached so compilation can test "*T implements Unmarshaler" without
 // allocating a fresh interface type descriptor per type.
 var unmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 
-// decodeOpsFor returns a compiled plan for t, compiling on first use.
+// decodePlanFor returns a compiled plan for t, compiling on first use.
 // Plans built with non-default tag options bypass the cache because
 // those options only matter for top-level slice/string leaves and
 // would otherwise pollute the per-type entry.
-func decodeOpsFor(t reflect.Type, opts tagOpts) (*decodeOps, error) {
+func decodePlanFor(t reflect.Type, opts tagOpts) (*decodePlan, error) {
 	if opts == (tagOpts{}) {
-		if p, ok := decodeOpsCache.Load(t); ok {
-			return p.(*decodeOps), nil
+		if p, ok := decodePlanCache.Load(t); ok {
+			return p.(*decodePlan), nil
 		}
 	}
-	p, err := compileDecodeOps(t, opts)
+	p, err := compileDecodePlan(t, opts)
 	if err != nil {
 		return nil, err
 	}
 	if opts == (tagOpts{}) {
-		if existing, loaded := decodeOpsCache.LoadOrStore(t, p); loaded {
-			return existing.(*decodeOps), nil
+		if existing, loaded := decodePlanCache.LoadOrStore(t, p); loaded {
+			return existing.(*decodePlan), nil
 		}
 	}
 	return p, nil
 }
 
-func compileDecodeOps(t reflect.Type, opts tagOpts) (*decodeOps, error) {
-	p := &decodeOps{typ: t, size: t.Size()}
+func compileDecodePlan(t reflect.Type, opts tagOpts) (*decodePlan, error) {
+	p := &decodePlan{typ: t, size: t.Size()}
 	if err := emitValue(p, t, 0, opts); err != nil {
 		return nil, err
 	}
 	return p, nil
 }
 
-func emitValue(p *decodeOps, t reflect.Type, off uintptr, opts tagOpts) error {
+func emitValue(p *decodePlan, t reflect.Type, off uintptr, opts tagOpts) error {
 	if fn, ok := registry.Load(t); ok {
 		p.ops = append(p.ops, op{kind: opCallFunc, offset: off, fn: fn.(decoderFunc)})
 		return nil
@@ -123,7 +123,7 @@ func emitValue(p *decodeOps, t reflect.Type, off uintptr, opts tagOpts) error {
 			p.ops = append(p.ops, op{kind: opFixedBytes, offset: off, count: uint32(t.Len())})
 			return nil
 		}
-		sub, err := compileDecodeOps(t.Elem(), tagOpts{})
+		sub, err := compileDecodePlan(t.Elem(), tagOpts{})
 		if err != nil {
 			return err
 		}
@@ -146,7 +146,7 @@ func emitValue(p *decodeOps, t reflect.Type, off uintptr, opts tagOpts) error {
 			})
 			return nil
 		}
-		sub, err := compileDecodeOps(t.Elem(), tagOpts{})
+		sub, err := compileDecodePlan(t.Elem(), tagOpts{})
 		if err != nil {
 			return err
 		}
@@ -164,7 +164,7 @@ func emitValue(p *decodeOps, t reflect.Type, off uintptr, opts tagOpts) error {
 		p.ops = append(p.ops, op{kind: opString, offset: off, prefix: opts.sizePrefix})
 
 	case reflect.Pointer:
-		sub, err := compileDecodeOps(t.Elem(), tagOpts{})
+		sub, err := compileDecodePlan(t.Elem(), tagOpts{})
 		if err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func emitValue(p *decodeOps, t reflect.Type, off uintptr, opts tagOpts) error {
 	return nil
 }
 
-func (d *Decoder) execDecodeOps(p *decodeOps, base unsafe.Pointer) error {
+func (d *Decoder) execDecodePlan(p *decodePlan, base unsafe.Pointer) error {
 	for i := range p.ops {
 		if err := d.execDecodeOp(&p.ops[i], base); err != nil {
 			return err
@@ -292,7 +292,7 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 	case opFixedArray:
 		elemBase := ptr
 		for i := uint32(0); i < o.count; i++ {
-			if err := d.execDecodeOps(o.sub, unsafe.Add(elemBase, uintptr(i)*o.elemSize)); err != nil {
+			if err := d.execDecodePlan(o.sub, unsafe.Add(elemBase, uintptr(i)*o.elemSize)); err != nil {
 				return fmt.Errorf("[%d]: %w", i, err)
 			}
 		}
@@ -327,7 +327,7 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		}
 		elemBase := unsafe.Pointer(rv.Index(0).UnsafeAddr())
 		for i := uint64(0); i < n; i++ {
-			if err := d.execDecodeOps(o.sub, unsafe.Add(elemBase, uintptr(i)*o.elemSize)); err != nil {
+			if err := d.execDecodePlan(o.sub, unsafe.Add(elemBase, uintptr(i)*o.elemSize)); err != nil {
 				return fmt.Errorf("[%d]: %w", i, err)
 			}
 		}
@@ -355,7 +355,7 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 			// reflect.New so the GC tracks the allocation as the right type.
 			fresh := reflect.New(o.elemType)
 			rv.Set(fresh)
-			if err := d.execDecodeOps(o.sub, unsafe.Pointer(fresh.Pointer())); err != nil {
+			if err := d.execDecodePlan(o.sub, unsafe.Pointer(fresh.Pointer())); err != nil {
 				return err
 			}
 		default:
@@ -383,9 +383,9 @@ func (d *Decoder) DecodeFast(v any) error {
 		return fmt.Errorf("encoding: DecodeFast requires a non-nil pointer, got %T", v)
 	}
 	t := rv.Type().Elem()
-	p, err := decodeOpsFor(t, tagOpts{})
+	p, err := decodePlanFor(t, tagOpts{})
 	if err != nil {
 		return err
 	}
-	return d.execDecodeOps(p, unsafe.Pointer(rv.Pointer()))
+	return d.execDecodePlan(p, unsafe.Pointer(rv.Pointer()))
 }

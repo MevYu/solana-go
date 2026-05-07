@@ -84,19 +84,6 @@ func BenchmarkDecodePlanCache(b *testing.B) {
 	}
 }
 
-func BenchmarkDecodeReflective(b *testing.B) {
-	data := makeBigRecPayload(50)
-	b.ReportAllocs()
-	b.SetBytes(int64(len(data)))
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var v bigRec
-		if err := NewDecoder(data).decodeReflect(&v); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 // BenchmarkDecodeU128 stresses the registered-decoder short-circuit.
 func BenchmarkDecodeU128(b *testing.B) {
 	enc := NewEncoder(16)
