@@ -16,8 +16,6 @@ import (
 // All components are hardened as required by SLIP-0010 / Ed25519.
 const DefaultDerivationPath = "m/44'/501'/0'/0'"
 
-var reDerivationPath = regexp.MustCompile(`^m(/\d+')*$`)
-
 // Ed25519KeypairFromMnemonic derives an Ed25519Keypair from a BIP39
 // mnemonic phrase.
 //
@@ -38,7 +36,7 @@ func Ed25519KeypairFromMnemonic(mnemonic, password, path string) (*Ed25519Keypai
 	if path == "" {
 		path = DefaultDerivationPath
 	}
-	if !reDerivationPath.MatchString(path) {
+	if !regexp.MustCompile(`^m(/\d+')*$`).MatchString(path) {
 		return nil, fmt.Errorf("solana: mnemonic: invalid derivation path %q", path)
 	}
 

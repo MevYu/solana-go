@@ -39,8 +39,8 @@ type Signer interface {
 // is already in process memory. For hardware wallets or remote HSMs,
 // use RemoteSigner instead.
 type Ed25519Keypair struct {
-	private ed25519.PrivateKey
 	public  PublicKey
+	private ed25519.PrivateKey
 }
 
 // NewEd25519Keypair returns a fresh keypair generated from the
