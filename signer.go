@@ -5,6 +5,8 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"fmt"
+
+	"github.com/mr-tron/base58"
 )
 
 // Signer is the interface implemented by anything that can produce
@@ -83,6 +85,23 @@ func Ed25519KeypairFromPrivateKey(priv []byte) (*Ed25519Keypair, error) {
 	var pk PublicKey
 	copy(pk[:], pub)
 	return &Ed25519Keypair{private: p, public: pk}, nil
+}
+
+// Ed25519KeypairFromBase58Key creates an Ed25519Keypair from a base58-encoded
+// Solana private key.
+// It accepts the standard 64-byte base58 private key string commonly used in
+// the Solana ecosystem.
+func Ed25519KeypairFromBase58Key(key string) (*Ed25519Keypair, error) {
+	// empty string
+	if len(key) == 0 {
+		return nil, fmt.Errorf("solana: ed25519 keypair: empty key")
+	}
+	b, err := base58.Decode(key)
+	// if err
+	if err != nil {
+		return nil, fmt.Errorf("solana: ed25519 keypair: %w", err)
+	}
+	return Ed25519KeypairFromSeed(b)
 }
 
 // PublicKey implements Signer.
