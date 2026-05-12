@@ -15,14 +15,15 @@ func (c *rpc.Client) GetSignatureStatuses(
 
 type GetSignatureStatusesResult struct {
     Slot     uint64
-    Statuses []*SignatureStatus // same length as input; nil entries unknown
+    Statuses []*solana.SignatureStatus // same length as input; nil entries unknown
 }
 
+// solana.SignatureStatus
 type SignatureStatus struct {
     Slot               uint64
-    Confirmations      *uint64 // nil once finalized
-    Err                any     // nil on success
-    ConfirmationStatus string  // "processed" | "confirmed" | "finalized"
+    Confirmations      *uint64         // nil once finalized
+    Err                json.RawMessage // empty / "null" on success
+    ConfirmationStatus string          // "processed" | "confirmed" | "finalized"
 }
 ```
 
@@ -40,20 +41,21 @@ of the node's recent cache).
 
 ### `Err` decoding
 
-`SignatureStatus.Err` is the raw `any` Solana returns — either
-`nil` for success or an object describing the failure. The
-helper `rpc.DecodeTransactionError` parses it into a typed
-`*TransactionError` or `*InstructionError`:
+`SignatureStatus.Err` is the raw JSON Solana returns — empty (or
+`"null"`) for success, or the err-object describing the failure.
+`rpc.DecodeTransactionError` accepts `json.RawMessage` directly,
+returns `nil` for the success cases, and otherwise parses into a
+typed `*TransactionError` or `*InstructionError`:
 
 ```go
 import "github.com/MevYu/solana-go/rpc"
 
-if s := res.Statuses[0]; s != nil && s.Err != nil {
-    err := rpc.DecodeTransactionError(s.Err)
-
-    var ie *rpc.InstructionError
-    if errors.As(err, &ie) {
-        fmt.Printf("instruction %d failed: %s\n", ie.Index, ie.Kind)
+if s := res.Statuses[0]; s != nil {
+    if err := rpc.DecodeTransactionError(s.Err); err != nil {
+        var ie *rpc.InstructionError
+        if errors.As(err, &ie) {
+            fmt.Printf("instruction %d failed: %s\n", ie.Index, ie.Kind)
+        }
     }
 }
 ```
@@ -75,8 +77,8 @@ func waitForSignature(ctx context.Context, c *rpc.Client, sig solana.Signature) 
         }
         s := res.Statuses[0]
         if s != nil {
-            if s.Err != nil {
-                return rpc.DecodeTransactionError(s.Err)
+            if txErr := rpc.DecodeTransactionError(s.Err); txErr != nil {
+                return txErr
             }
             if s.ConfirmationStatus == "confirmed" || s.ConfirmationStatus == "finalized" {
                 return nil

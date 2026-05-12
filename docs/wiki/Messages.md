@@ -32,7 +32,7 @@ const (
 - **v0** messages prefix their first byte with `0x80`, leaving the
   low 7 bits for the version number. Bumping to v1 is a matter of
   adding a new constant and extending `validate` / `Marshal` /
-  `UnmarshalMessage`.
+  `UnmarshalBinary`.
 
 The `MessageVersionLegacy` sentinel is `0xFF`, a value that can
 never appear on the wire, so "legacy" and "versioned" never get
@@ -96,26 +96,32 @@ shortvec list of address table lookups after the instructions.
 `shortvec` is Solana's compact-u16 encoding (1–3 bytes). See
 `internal/binary/shortvec.go`.
 
-## `Marshal` and `UnmarshalMessage`
+## `Marshal` and `UnmarshalBinary`
 
 ```go
-data, err := msg.Marshal()              // []byte, error
-out, err := solana.UnmarshalMessage(data) // *Message, error
+data, err := msg.Marshal()         // []byte, error
+
+out := &solana.Message{}
+err = out.UnmarshalBinary(data)    // implements encoding.BinaryUnmarshaler
 ```
 
 The marshaller and unmarshaller have three strict properties:
 
-1. **Trailing-byte rejection**: `UnmarshalMessage` checks
+1. **Trailing-byte rejection**: `UnmarshalBinary` checks
    `d.Remaining() != 0` after parsing the last field and returns
    an error if there is leftover data. A corrupted wire that
    happens to decode into a well-formed message prefix cannot
    silently drop its tail.
 2. **No input aliasing**: every variable-length field is copied
    out of the decoder before returning, so callers may mutate or
-   free the input buffer after `UnmarshalMessage` returns.
+   free the input buffer after `UnmarshalBinary` returns.
 3. **Explicit version rejection**: `validate()` rejects legacy
    messages that carry ALT lookups (an obvious data bug) and
-   `UnmarshalMessage` rejects versions past `maxMessageVersion`.
+   `UnmarshalBinary` rejects versions past `maxMessageVersion`.
+
+To decode from the middle of a larger stream (e.g. Jito ShredStream
+entries), call `solana.DecodeMessage(d *encoding.Decoder)` directly
+— it advances the cursor and does **not** enforce end-of-buffer.
 
 ## Building a message by hand
 

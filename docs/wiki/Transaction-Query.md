@@ -67,16 +67,14 @@ if res == nil {
 
 ## Decoding the transaction body
 
-`Transaction` is an [AccountData](Accounts) two-element shape.
-Decode via `Bytes()`, then hand to `UnmarshalTransaction`:
+`Transaction` is a `solana.EncodedData` value whose `Bytes` field
+already holds the wire bytes (the JSON unmarshaller eagerly
+decodes base64 / base58 / base64+zstd). Hand it to
+`(*Transaction).UnmarshalBinary`:
 
 ```go
-raw, err := res.Transaction.Bytes()
-if err != nil {
-    return err // unsupported encoding
-}
-tx, err := solana.UnmarshalTransaction(raw)
-if err != nil {
+tx := &solana.Transaction{}
+if err := tx.UnmarshalBinary(res.Transaction.Bytes); err != nil {
     return err
 }
 // tx.Message has the account keys, instructions, blockhash
@@ -108,9 +106,11 @@ full view).
 
 ### Typed `Meta.Err`
 
-`Meta.Err` is raw `any`, same shape as `SimulateResult.Err`.
-Feed it to `rpc.DecodeTransactionError` to get typed Go
-errors. See [Simulate With Decoded Errors](Simulate-With-Decoded-Errors)
+`Meta.Err` is `json.RawMessage` carrying the on-wire JSON of the
+transaction error (or empty on success). Feed it to
+`rpc.DecodeTransactionError`, which accepts `json.RawMessage`
+directly, to get typed Go errors. See
+[Simulate With Decoded Errors](Simulate-With-Decoded-Errors)
 for details.
 
 ## Example: audit a transaction's impact
@@ -126,11 +126,15 @@ if res == nil {
     return fmt.Errorf("signature %s not found", sig)
 }
 
-raw, _ := res.Transaction.Bytes()
-tx, _  := solana.UnmarshalTransaction(raw)
+tx := &solana.Transaction{}
+_ = tx.UnmarshalBinary(res.Transaction.Bytes)
 
+var cus uint64
+if res.Meta.ComputeUnitsConsumed != nil {
+    cus = *res.Meta.ComputeUnitsConsumed
+}
 fmt.Printf("slot %d, fee %d lamports, %d CUs\n",
-    res.Slot, res.Meta.Fee, res.Meta.ComputeUnitsConsumed)
+    res.Slot, res.Meta.Fee, cus)
 
 for i, line := range res.Meta.LogMessages {
     fmt.Printf("  %3d: %s\n", i, line)

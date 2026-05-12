@@ -135,10 +135,10 @@ obvious next to the Solana runtime source.
 
 ## Streaming transaction decode
 
-`UnmarshalTransaction(data)` and `UnmarshalMessage(data)` take
-a whole-buffer view and reject trailing bytes. To decode a
-transaction out of the middle of a larger stream, use the
-decoder-position variants:
+`(*Transaction).UnmarshalBinary(data)` and
+`(*Message).UnmarshalBinary(data)` take a whole-buffer view and
+reject trailing bytes. To decode a transaction out of the middle
+of a larger stream, use the decoder-position variants:
 
 - `DecodeTransaction(d *encoding.Decoder) (*Transaction, error)`
   — reads one transaction from the current position, advances
