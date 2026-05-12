@@ -87,8 +87,8 @@ func TestMessage_Legacy_RoundTrip(t *testing.T) {
 		t.Fatalf("legacy first byte = %#x, must not set 0x80", data[0])
 	}
 
-	out, err := UnmarshalMessage(data)
-	if err != nil {
+	out := &Message{}
+	if err := out.UnmarshalBinary(data); err != nil {
 		t.Fatal(err)
 	}
 
@@ -140,8 +140,8 @@ func TestMessage_V0_RoundTrip(t *testing.T) {
 		t.Fatalf("v0 first byte = %#x, want %#x", data[0], versionPrefixMask)
 	}
 
-	out, err := UnmarshalMessage(data)
-	if err != nil {
+	out := &Message{}
+	if err := out.UnmarshalBinary(data); err != nil {
 		t.Fatal(err)
 	}
 	if out.Version != MessageVersion0 {
@@ -174,8 +174,8 @@ func TestMessage_V0_EmptyLookups_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := UnmarshalMessage(data)
-	if err != nil {
+	out := &Message{}
+	if err := out.UnmarshalBinary(data); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.AddressTableLookups) != 0 {
@@ -184,10 +184,10 @@ func TestMessage_V0_EmptyLookups_RoundTrip(t *testing.T) {
 }
 
 func TestMessage_EmptyInput(t *testing.T) {
-	if _, err := UnmarshalMessage(nil); err == nil {
+	if err := new(Message).UnmarshalBinary(nil); err == nil {
 		t.Fatal("expected error on nil input")
 	}
-	if _, err := UnmarshalMessage([]byte{}); err == nil {
+	if err := new(Message).UnmarshalBinary([]byte{}); err == nil {
 		t.Fatal("expected error on empty input")
 	}
 }
@@ -204,7 +204,7 @@ func TestMessage_UnsupportedVersion(t *testing.T) {
 	data = append(data, 0)                         // instructions count
 	data = append(data, 0)                         // lookups count
 
-	_, err := UnmarshalMessage(data)
+	err := new(Message).UnmarshalBinary(data)
 	if err == nil {
 		t.Fatal("expected error for unsupported version")
 	}
@@ -243,7 +243,7 @@ func TestMessage_TruncatedFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < len(data); i++ {
-		if _, err := UnmarshalMessage(data[:i]); err == nil {
+		if err := new(Message).UnmarshalBinary(data[:i]); err == nil {
 			t.Fatalf("truncated at %d/%d should have errored", i, len(data))
 		}
 	}
@@ -256,7 +256,7 @@ func TestMessage_TrailingBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	data = append(data, 0xff)
-	if _, err := UnmarshalMessage(data); err == nil {
+	if err := new(Message).UnmarshalBinary(data); err == nil {
 		t.Fatal("expected error for trailing bytes")
 	}
 }
@@ -267,8 +267,8 @@ func TestMessage_UnmarshalDoesNotAliasInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := UnmarshalMessage(data)
-	if err != nil {
+	out := &Message{}
+	if err := out.UnmarshalBinary(data); err != nil {
 		t.Fatal(err)
 	}
 	// Zero the input buffer after Unmarshal; the returned Message
@@ -363,6 +363,6 @@ func BenchmarkMessage_Unmarshal_Legacy(b *testing.B) {
 	data, _ := m.Marshal()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, _ = UnmarshalMessage(data)
+		_ = new(Message).UnmarshalBinary(data)
 	}
 }

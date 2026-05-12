@@ -41,8 +41,8 @@ func (c *Client) GetBlockHeight(ctx context.Context, cfg ...CommitmentWithMinSlo
 }
 
 // GetLatestBlockhash returns the latest blockhash and its last valid block height.
-func (c *Client) GetLatestBlockhash(ctx context.Context, cfg ...CommitmentWithMinSlotCfg) (*LatestBlockhash, error) {
-	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[LatestBlockhash]](ctx, c.Client, "getLatestBlockhash", FirstOrZero(cfg))
+func (c *Client) GetLatestBlockhash(ctx context.Context, cfg ...CommitmentWithMinSlotCfg) (*solana.LatestBlockhash, error) {
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[solana.LatestBlockhash]](ctx, c.Client, "getLatestBlockhash", FirstOrZero(cfg))
 	if err != nil {
 		return nil, err
 	}

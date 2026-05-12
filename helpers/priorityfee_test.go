@@ -3,11 +3,11 @@ package helpers
 import (
 	"testing"
 
-	"github.com/MevYu/solana-go/rpc"
+	solana "github.com/MevYu/solana-go"
 )
 
 func TestPriorityFeeStatsFromFees_TenSamples(t *testing.T) {
-	fees := []rpc.PrioritizationFee{
+	fees := []solana.PrioritizationFee{
 		{Slot: 100, PrioritizationFee: 1000},
 		{Slot: 101, PrioritizationFee: 2000},
 		{Slot: 102, PrioritizationFee: 3000},
@@ -48,7 +48,7 @@ func TestPriorityFeeStatsFromFees_Empty(t *testing.T) {
 }
 
 func TestPriorityFeeStatsFromFees_SingleSample(t *testing.T) {
-	fees := []rpc.PrioritizationFee{{Slot: 1, PrioritizationFee: 12345}}
+	fees := []solana.PrioritizationFee{{Slot: 1, PrioritizationFee: 12345}}
 	stats := PriorityFeeStatsFromFees(fees)
 	if stats.Samples != 1 {
 		t.Errorf("Samples = %d", stats.Samples)
@@ -59,7 +59,7 @@ func TestPriorityFeeStatsFromFees_SingleSample(t *testing.T) {
 }
 
 func TestPriorityFeeStatsFromFees_UnsortedInput(t *testing.T) {
-	fees := []rpc.PrioritizationFee{
+	fees := []solana.PrioritizationFee{
 		{Slot: 1, PrioritizationFee: 3000},
 		{Slot: 2, PrioritizationFee: 1000},
 		{Slot: 3, PrioritizationFee: 2000},

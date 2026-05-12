@@ -13,11 +13,11 @@ import (
 
 // GetTransactionResult is the decoded response of GetTransaction.
 type GetTransactionResult struct {
-	Slot        uint64             `json:"slot"`
-	BlockTime   *int64             `json:"blockTime"`
-	Meta        *TransactionMeta   `json:"meta"`
-	Transaction solana.EncodedData `json:"transaction"`
-	Version     any                `json:"version"`
+	Slot        uint64                  `json:"slot"`
+	BlockTime   *int64                  `json:"blockTime"`
+	Meta        *solana.TransactionMeta `json:"meta"`
+	Transaction solana.EncodedData      `json:"transaction"`
+	Version     any                     `json:"version"`
 }
 
 // GetTransaction fetches a single transaction by signature.

@@ -165,34 +165,36 @@ func (tx *Transaction) Marshal() ([]byte, error) {
 	return append([]byte(nil), e.Bytes()...), nil
 }
 
-// UnmarshalTransaction parses a wire-format Solana transaction. The
-// returned Transaction does not alias the input buffer: signatures
-// are copied out, and the embedded Message is fully materialised by
-// DecodeMessage, which itself copies its variable-length fields.
+// UnmarshalBinary parses a wire-format Solana transaction into tx,
+// implementing encoding.BinaryUnmarshaler. Decoded fields do not
+// alias data: signatures are copied out, and the embedded Message is
+// fully materialised by DecodeMessage, which itself copies its
+// variable-length fields.
 //
 // Trailing bytes after the transaction are rejected. To decode a
 // transaction out of a larger stream, use DecodeTransaction with a
 // caller-owned *encoding.Decoder.
-func UnmarshalTransaction(data []byte) (*Transaction, error) {
+func (tx *Transaction) UnmarshalBinary(data []byte) error {
 	if len(data) == 0 {
-		return nil, fmt.Errorf("solana: transaction: empty input")
+		return fmt.Errorf("solana: transaction: empty input")
 	}
 	d := encoding.NewDecoder(data)
-	tx, err := DecodeTransaction(d)
+	decoded, err := DecodeTransaction(d)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if r := d.Remaining(); r != 0 {
-		return nil, fmt.Errorf("solana: transaction: %d trailing bytes", r)
+		return fmt.Errorf("solana: transaction: %d trailing bytes", r)
 	}
-	return tx, nil
+	*tx = *decoded
+	return nil
 }
 
 // DecodeTransaction reads one Solana Transaction from d's current
 // position and advances the cursor past the message body. Unlike
-// UnmarshalTransaction it does NOT enforce end-of-buffer, so callers
-// can decode a sequence of transactions from a larger stream (e.g.
-// Jito ShredStream entries).
+// Transaction.UnmarshalBinary it does NOT enforce end-of-buffer, so
+// callers can decode a sequence of transactions from a larger stream
+// (e.g. Jito ShredStream entries).
 //
 // The returned Transaction does not alias d's buffer.
 func DecodeTransaction(d *encoding.Decoder) (*Transaction, error) {

@@ -3,7 +3,7 @@ package helpers
 import (
 	"sort"
 
-	"github.com/MevYu/solana-go/rpc"
+	solana "github.com/MevYu/solana-go"
 )
 
 // PriorityFeeStats summarises a window of recent prioritization fees as
@@ -28,7 +28,7 @@ type PriorityFeeStats struct {
 // pre-fetched slice of fees (typically from Client.GetRecentPrioritizationFees).
 //
 // The input slice is not mutated.
-func PriorityFeeStatsFromFees(fees []rpc.PrioritizationFee) *PriorityFeeStats {
+func PriorityFeeStatsFromFees(fees []solana.PrioritizationFee) *PriorityFeeStats {
 	if len(fees) == 0 {
 		return &PriorityFeeStats{}
 	}

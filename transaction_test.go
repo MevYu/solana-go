@@ -213,8 +213,8 @@ func TestTransaction_Marshal_UnmarshalRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := UnmarshalTransaction(data)
-	if err != nil {
+	out := &Transaction{}
+	if err := out.UnmarshalBinary(data); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.Signatures) != 3 {
@@ -238,10 +238,10 @@ func TestTransaction_Marshal_UnmarshalRoundTrip(t *testing.T) {
 }
 
 func TestTransaction_UnmarshalEmpty(t *testing.T) {
-	if _, err := UnmarshalTransaction(nil); err == nil {
+	if err := new(Transaction).UnmarshalBinary(nil); err == nil {
 		t.Fatal("expected error on nil input")
 	}
-	if _, err := UnmarshalTransaction([]byte{}); err == nil {
+	if err := new(Transaction).UnmarshalBinary([]byte{}); err == nil {
 		t.Fatal("expected error on empty input")
 	}
 }
@@ -256,7 +256,7 @@ func TestTransaction_Unmarshal_Truncated(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 1; i < len(data); i++ {
-		if _, err := UnmarshalTransaction(data[:i]); err == nil {
+		if err := new(Transaction).UnmarshalBinary(data[:i]); err == nil {
 			t.Fatalf("truncated at %d/%d should have errored", i, len(data))
 		}
 	}
@@ -272,7 +272,7 @@ func TestTransaction_Unmarshal_TrailingBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	data = append(data, 0xFF)
-	if _, err := UnmarshalTransaction(data); err == nil {
+	if err := new(Transaction).UnmarshalBinary(data); err == nil {
 		t.Fatal("expected error for trailing bytes")
 	}
 }
@@ -360,6 +360,6 @@ func BenchmarkTransaction_Unmarshal(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = UnmarshalTransaction(data)
+		_ = new(Transaction).UnmarshalBinary(data)
 	}
 }
