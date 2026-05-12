@@ -1,6 +1,10 @@
 package rpc
 
-import "fmt"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+)
 
 // TransactionError is a top-level transaction error that is not tied to
 // a specific instruction. It carries the symbolic name the Solana
@@ -35,11 +39,17 @@ func (e *InstructionError) Error() string {
 // DecodeTransactionError parses the server's raw err field into either a
 // *TransactionError, an *InstructionError, or nil.
 //
-// The raw value comes from simulateTransaction or getTransaction's
-// meta.err and is the untyped JSON shape Solana returns:
+// The raw value comes from simulateTransaction, getTransaction's
+// meta.err, or getSignatureStatuses' value[].err. Accepted forms:
 //
-//   - nil (success)
+//   - nil / empty json.RawMessage / JSON null (success)
+//   - json.RawMessage / []byte containing the raw JSON
 //   - a plain string like "BlockhashNotFound"
+//   - map[string]any decoded via json.Unmarshal(&interface{})
+//
+// Decoded payloads it understands:
+//
+//   - "BlockhashNotFound"
 //   - {"InstructionError": [<idx>, "<kind>"]}
 //   - {"InstructionError": [<idx>, {"Custom": <u32>}]}
 //   - {"InstructionError": [<idx>, {"<Kind>": <sub>}]}
@@ -51,6 +61,10 @@ func DecodeTransactionError(raw any) error {
 		return nil
 	}
 	switch v := raw.(type) {
+	case json.RawMessage:
+		return decodeTxErrorBytes(v)
+	case []byte:
+		return decodeTxErrorBytes(v)
 	case string:
 		return &TransactionError{Kind: v}
 	case map[string]any:
@@ -62,6 +76,20 @@ func DecodeTransactionError(raw any) error {
 		}
 	}
 	return fmt.Errorf("solana helpers: unrecognized transaction error shape: %v", raw)
+}
+
+// decodeTxErrorBytes lazily parses the raw JSON bytes of an err field
+// into the same interface{} shape DecodeTransactionError already
+// handles, then recurses.
+func decodeTxErrorBytes(raw []byte) error {
+	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil
+	}
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return fmt.Errorf("solana helpers: decode err field: %w", err)
+	}
+	return DecodeTransactionError(v)
 }
 
 func decodeInstructionError(ieRaw any) error {

@@ -214,8 +214,10 @@ func (c *Client) confirmSignature(
 		if err == nil && len(statuses.Statuses) > 0 && statuses.Statuses[0] != nil {
 			landed = true
 			s := statuses.Statuses[0]
-			if s.Err != nil {
-				return DecodeTransactionError(s.Err)
+			// DecodeTransactionError treats a nil RawMessage, an empty
+			// RawMessage, or a literal "null" payload as success.
+			if txErr := DecodeTransactionError(s.Err); txErr != nil {
+				return txErr
 			}
 			if statusReachedCommitment(s.ConfirmationStatus, cfg.commitment) {
 				return nil

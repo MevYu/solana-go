@@ -264,34 +264,35 @@ func (m *Message) validate() error {
 	return nil
 }
 
-// UnmarshalMessage parses data as a Solana Message and returns a new
-// Message structure. The returned Message does not share memory with
-// the input slice: all variable-length fields are copied out of the
-// decoder before returning, so callers may mutate or free data
-// afterwards.
+// UnmarshalBinary parses data as a Solana Message and populates m,
+// implementing encoding.BinaryUnmarshaler. The decoded fields do not
+// alias data: all variable-length payloads are copied out of the
+// decoder before UnmarshalBinary returns, so callers may mutate or
+// free data afterwards.
 //
 // Trailing bytes after the message body are rejected. To decode a
-// message out of a larger stream, use DecodeMessage with a caller-owned
-// *encoding.Decoder.
-func UnmarshalMessage(data []byte) (*Message, error) {
+// message out of a larger stream, use DecodeMessage with a
+// caller-owned *encoding.Decoder.
+func (m *Message) UnmarshalBinary(data []byte) error {
 	if len(data) == 0 {
-		return nil, fmt.Errorf("solana: message: empty input")
+		return fmt.Errorf("solana: message: empty input")
 	}
 	d := encoding.NewDecoder(data)
-	m, err := DecodeMessage(d)
+	decoded, err := DecodeMessage(d)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if r := d.Remaining(); r != 0 {
-		return nil, fmt.Errorf("solana: message: %d trailing bytes after message body", r)
+		return fmt.Errorf("solana: message: %d trailing bytes after message body", r)
 	}
-	return m, nil
+	*m = *decoded
+	return nil
 }
 
 // DecodeMessage reads a Solana Message from d's current position and
-// advances the cursor past the last field. Unlike UnmarshalMessage it
-// does NOT enforce end-of-buffer, so callers can decode a message out
-// of a larger byte stream (e.g. Jito ShredStream entries).
+// advances the cursor past the last field. Unlike Message.UnmarshalBinary
+// it does NOT enforce end-of-buffer, so callers can decode a message
+// out of a larger byte stream (e.g. Jito ShredStream entries).
 //
 // The returned Message does not alias d's buffer: all variable-length
 // fields are copied out before returning.

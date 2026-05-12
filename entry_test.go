@@ -188,14 +188,14 @@ func TestDecodeTransaction_StreamAdvancesCursor(t *testing.T) {
 	}
 }
 
-func TestUnmarshalTransaction_RejectsTrailing(t *testing.T) {
+func TestTransaction_UnmarshalBinary_RejectsTrailing(t *testing.T) {
 	tx := sampleTransaction(PublicKey{1}, Hash{2})
 	b, err := tx.Marshal()
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 	b = append(b, 0xff)
-	if _, err := UnmarshalTransaction(b); err == nil {
+	if err := new(Transaction).UnmarshalBinary(b); err == nil {
 		t.Fatal("expected trailing-bytes error")
 	}
 }

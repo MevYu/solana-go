@@ -47,7 +47,7 @@ func (c *Client) GetFeeForMessage(ctx context.Context, msg *solana.Message, cfg 
 const MaxGetRecentPrioritizationFeesAddresses = 128
 
 // GetRecentPrioritizationFees returns the prioritization fees observed in recent slots.
-func (c *Client) GetRecentPrioritizationFees(ctx context.Context, addresses []solana.PublicKey) ([]PrioritizationFee, error) {
+func (c *Client) GetRecentPrioritizationFees(ctx context.Context, addresses []solana.PublicKey) ([]solana.PrioritizationFee, error) {
 	if len(addresses) > MaxGetRecentPrioritizationFeesAddresses {
 		return nil, fmt.Errorf("solana: GetRecentPrioritizationFees: %d addresses exceeds Solana RPC max of %d", len(addresses), MaxGetRecentPrioritizationFeesAddresses)
 	}
@@ -55,7 +55,7 @@ func (c *Client) GetRecentPrioritizationFees(ctx context.Context, addresses []so
 	for i, a := range addresses {
 		keys[i] = a.String()
 	}
-	result, err := jsonrpc.CallContext[[]PrioritizationFee](ctx, c.Client, "getRecentPrioritizationFees", keys)
+	result, err := jsonrpc.CallContext[[]solana.PrioritizationFee](ctx, c.Client, "getRecentPrioritizationFees", keys)
 	if err != nil {
 		return nil, err
 	}

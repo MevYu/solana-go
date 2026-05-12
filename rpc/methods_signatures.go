@@ -24,7 +24,7 @@ func (c *Client) GetSignatureStatuses(ctx context.Context, sigs []solana.Signatu
 	for i, s := range sigs {
 		sigStrs[i] = s.String()
 	}
-	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[[]*SignatureStatus]](ctx, c.Client, "getSignatureStatuses", sigStrs, FirstOrZero(cfg))
+	resp, err := jsonrpc.CallContext[jsonrpc.ContextValue[[]*solana.SignatureStatus]](ctx, c.Client, "getSignatureStatuses", sigStrs, FirstOrZero(cfg))
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,126 @@ type LoadedAddressLookupTable struct {
 	Addresses  []PublicKey // All addresses in the table, ordered by slot index
 }
 
+// staticEntry tracks one static account's cumulative signer/writable
+// roles, plus the order it first appeared in the instruction stream.
+// firstSeen preserves the solana-web3.js-compatible bucket ordering.
+type staticEntry struct {
+	pubkey    PublicKey
+	signer    bool
+	writable  bool
+	firstSeen int
+}
+
+// staticEntries is a deduplicating collector for static account keys.
+// addOrUpdate is OR-semantics: the same key seen as signer in one
+// instruction and non-signer in another ends up signer.
+type staticEntries struct {
+	m       map[PublicKey]*staticEntry
+	counter int
+}
+
+func newStaticEntries() *staticEntries {
+	return &staticEntries{m: make(map[PublicKey]*staticEntry)}
+}
+
+func (s *staticEntries) addOrUpdate(pk PublicKey, signer, writable bool) {
+	e, ok := s.m[pk]
+	if !ok {
+		e = &staticEntry{pubkey: pk, firstSeen: s.counter}
+		s.counter++
+		s.m[pk] = e
+	}
+	e.signer = e.signer || signer
+	e.writable = e.writable || writable
+}
+
+// bucketAndOrder returns the static account list sorted into the four
+// Solana role buckets — signer-writable, signer-readonly,
+// non-signer-writable, non-signer-readonly — plus the matching
+// MessageHeader counters. Within each bucket entries are ordered by
+// firstSeen so output is stable and matches solana-web3.js.
+func (s *staticEntries) bucketAndOrder() ([]PublicKey, MessageHeader) {
+	var bucketCounts [4]int
+	for _, e := range s.m {
+		bucketCounts[bucketOf(e)]++
+	}
+	var buckets [4][]*staticEntry
+	for i := range buckets {
+		buckets[i] = make([]*staticEntry, 0, bucketCounts[i])
+	}
+	for _, e := range s.m {
+		b := bucketOf(e)
+		buckets[b] = append(buckets[b], e)
+	}
+	for i := range buckets {
+		sort.SliceStable(buckets[i], func(a, b int) bool {
+			return buckets[i][a].firstSeen < buckets[i][b].firstSeen
+		})
+	}
+
+	keys := make([]PublicKey, 0, len(s.m))
+	for _, b := range buckets {
+		for _, e := range b {
+			keys = append(keys, e.pubkey)
+		}
+	}
+	header := MessageHeader{
+		NumRequiredSignatures:       uint8(len(buckets[0]) + len(buckets[1])),
+		NumReadonlySignedAccounts:   uint8(len(buckets[1])),
+		NumReadonlyUnsignedAccounts: uint8(len(buckets[3])),
+	}
+	return keys, header
+}
+
+// bucketOf maps a staticEntry to its role bucket index:
+// 0=signer-writable, 1=signer-readonly, 2=non-signer-writable,
+// 3=non-signer-readonly.
+func bucketOf(e *staticEntry) int {
+	switch {
+	case e.signer && e.writable:
+		return 0
+	case e.signer && !e.writable:
+		return 1
+	case !e.signer && e.writable:
+		return 2
+	default:
+		return 3
+	}
+}
+
+// compileInstructions resolves each Instruction's program id and
+// AccountMetas to indices into keyIndex, producing the compiled form
+// stored in the message. fnName names the calling builder for error
+// messages.
+func compileInstructions(instructions []Instruction, keyIndex map[PublicKey]int, fnName string) ([]CompiledInstruction, error) {
+	compiled := make([]CompiledInstruction, 0, len(instructions))
+	for _, ix := range instructions {
+		programIdx, ok := keyIndex[ix.ProgramID()]
+		if !ok {
+			return nil, fmt.Errorf("solana: %s: program id %s missing from key index", fnName, ix.ProgramID())
+		}
+		metas := ix.Accounts()
+		accIdxs := make(Uint8Slice, len(metas))
+		for i, m := range metas {
+			idx, ok := keyIndex[m.PublicKey]
+			if !ok {
+				return nil, fmt.Errorf("solana: %s: account %s missing from key index", fnName, m.PublicKey)
+			}
+			accIdxs[i] = uint8(idx)
+		}
+		data, err := ix.Data()
+		if err != nil {
+			return nil, fmt.Errorf("solana: %s: instruction data: %w", fnName, err)
+		}
+		compiled = append(compiled, CompiledInstruction{
+			ProgramIDIndex: uint8(programIdx),
+			Accounts:       accIdxs,
+			Data:           data,
+		})
+	}
+	return compiled, nil
+}
+
 // NewMessage compiles a slice of typed Instructions into a legacy
 // Message ready to be signed by Transaction.Sign.
 //
@@ -48,29 +168,8 @@ func NewMessage(payer PublicKey, instructions []Instruction, recentBlockhash Has
 		return nil, fmt.Errorf("solana: NewMessage: no instructions")
 	}
 
-	type entry struct {
-		pubkey    PublicKey
-		signer    bool
-		writable  bool
-		firstSeen int
-	}
-
-	entries := make(map[PublicKey]*entry)
-	firstSeenCounter := 0
-
-	addOrUpdate := func(pk PublicKey, signer, writable bool) {
-		e, ok := entries[pk]
-		if !ok {
-			e = &entry{pubkey: pk, firstSeen: firstSeenCounter}
-			firstSeenCounter++
-			entries[pk] = e
-		}
-		e.signer = e.signer || signer
-		e.writable = e.writable || writable
-	}
-
-	// Payer is always added first with signer + writable role.
-	addOrUpdate(payer, true, true)
+	entries := newStaticEntries()
+	entries.addOrUpdate(payer, true, true) // payer always signer+writable
 
 	for _, ix := range instructions {
 		if ix == nil {
@@ -80,63 +179,14 @@ func NewMessage(payer PublicKey, instructions []Instruction, recentBlockhash Has
 			if meta == nil {
 				return nil, fmt.Errorf("solana: NewMessage: nil AccountMeta")
 			}
-			addOrUpdate(meta.PublicKey, meta.IsSigner, meta.IsWritable)
+			entries.addOrUpdate(meta.PublicKey, meta.IsSigner, meta.IsWritable)
 		}
-		addOrUpdate(ix.ProgramID(), false, false)
+		entries.addOrUpdate(ix.ProgramID(), false, false)
 	}
 
-	// Bucket by role: 0=sw, 1=sr, 2=nw, 3=nr.
-	// Two-pass: count first so each bucket slice is pre-sized exactly.
-	var bucketCounts [4]int
-	for _, e := range entries {
-		switch {
-		case e.signer && e.writable:
-			bucketCounts[0]++
-		case e.signer && !e.writable:
-			bucketCounts[1]++
-		case !e.signer && e.writable:
-			bucketCounts[2]++
-		default:
-			bucketCounts[3]++
-		}
-	}
-	var buckets [4][]*entry
-	for i := range buckets {
-		buckets[i] = make([]*entry, 0, bucketCounts[i])
-	}
-	for _, e := range entries {
-		switch {
-		case e.signer && e.writable:
-			buckets[0] = append(buckets[0], e)
-		case e.signer && !e.writable:
-			buckets[1] = append(buckets[1], e)
-		case !e.signer && e.writable:
-			buckets[2] = append(buckets[2], e)
-		default:
-			buckets[3] = append(buckets[3], e)
-		}
-	}
-	for i := range buckets {
-		sort.SliceStable(buckets[i], func(a, b int) bool {
-			return buckets[i][a].firstSeen < buckets[i][b].firstSeen
-		})
-	}
-
-	accountKeys := make([]PublicKey, 0, len(entries))
-	for _, b := range buckets {
-		for _, e := range b {
-			accountKeys = append(accountKeys, e.pubkey)
-		}
-	}
-
+	accountKeys, header := entries.bucketAndOrder()
 	if len(accountKeys) > 256 {
 		return nil, fmt.Errorf("solana: NewMessage: %d account keys exceeds Solana maximum of 256", len(accountKeys))
-	}
-
-	header := MessageHeader{
-		NumRequiredSignatures:       uint8(len(buckets[0]) + len(buckets[1])),
-		NumReadonlySignedAccounts:   uint8(len(buckets[1])),
-		NumReadonlyUnsignedAccounts: uint8(len(buckets[3])),
 	}
 
 	keyIndex := make(map[PublicKey]int, len(accountKeys))
@@ -144,30 +194,9 @@ func NewMessage(payer PublicKey, instructions []Instruction, recentBlockhash Has
 		keyIndex[k] = i
 	}
 
-	compiled := make([]CompiledInstruction, 0, len(instructions))
-	for _, ix := range instructions {
-		programIdx, ok := keyIndex[ix.ProgramID()]
-		if !ok {
-			return nil, fmt.Errorf("solana: NewMessage: program id %s missing from key index", ix.ProgramID())
-		}
-		metas := ix.Accounts()
-		accIdxs := make(Uint8Slice, len(metas))
-		for i, m := range metas {
-			idx, ok := keyIndex[m.PublicKey]
-			if !ok {
-				return nil, fmt.Errorf("solana: NewMessage: account %s missing from key index", m.PublicKey)
-			}
-			accIdxs[i] = uint8(idx)
-		}
-		data, err := ix.Data()
-		if err != nil {
-			return nil, fmt.Errorf("solana: NewMessage: instruction data: %w", err)
-		}
-		compiled = append(compiled, CompiledInstruction{
-			ProgramIDIndex: uint8(programIdx),
-			Accounts:       accIdxs,
-			Data:           data,
-		})
+	compiled, err := compileInstructions(instructions, keyIndex, "NewMessage")
+	if err != nil {
+		return nil, err
 	}
 
 	return &Message{
@@ -200,7 +229,7 @@ func NewMessageV0(payer PublicKey, instructions []Instruction, recentBlockhash H
 		return nil, fmt.Errorf("solana: NewMessageV0: no instructions")
 	}
 
-	// Build a reverse map: pubkey → (tableIndex, slotIndex) from all tables.
+	// Reverse map pubkey → (tableIdx, slotIdx) from all tables.
 	type tableSlot struct {
 		tableIdx int
 		slotIdx  int
@@ -214,7 +243,7 @@ func NewMessageV0(payer PublicKey, instructions []Instruction, recentBlockhash H
 		}
 	}
 
-	// Collect signer pubkeys from all instructions — signers must be static.
+	// Signers must always be static, even if present in a table.
 	signerSet := make(map[PublicKey]bool)
 	signerSet[payer] = true
 	for _, ix := range instructions {
@@ -231,48 +260,18 @@ func NewMessageV0(payer PublicKey, instructions []Instruction, recentBlockhash H
 		}
 	}
 
-	// Decide static vs table for each account.
-	type entry struct {
-		pubkey    PublicKey
-		signer    bool
-		writable  bool
-		firstSeen int
-	}
-	staticEntries := make(map[PublicKey]*entry)
-	firstSeenCounter := 0
+	entries := newStaticEntries()
+	entries.addOrUpdate(payer, true, true)
 
-	addOrUpdateStatic := func(pk PublicKey, signer, writable bool) {
-		e, ok := staticEntries[pk]
-		if !ok {
-			e = &entry{pubkey: pk, firstSeen: firstSeenCounter}
-			firstSeenCounter++
-			staticEntries[pk] = e
-		}
-		e.signer = e.signer || signer
-		e.writable = e.writable || writable
-	}
-
-	// tableAccounts[tableIdx] maps slotIdx → writable flag.
-	type tableAccountEntry struct {
-		slotIdx  int
-		writable bool
-	}
 	tableAccounts := make([]map[int]bool, len(tables)) // tableIdx → slotIdx → writable
 	for i := range tableAccounts {
 		tableAccounts[i] = make(map[int]bool)
 	}
-
 	addOrUpdateTable := func(pk PublicKey, writable bool) {
-		slot, ok := tableIndex[pk]
-		if !ok {
-			return
-		}
+		slot := tableIndex[pk]
 		prev := tableAccounts[slot.tableIdx][slot.slotIdx]
 		tableAccounts[slot.tableIdx][slot.slotIdx] = prev || writable
 	}
-
-	// Payer always static.
-	addOrUpdateStatic(payer, true, true)
 
 	for _, ix := range instructions {
 		for _, meta := range ix.Accounts() {
@@ -280,68 +279,20 @@ func NewMessageV0(payer PublicKey, instructions []Instruction, recentBlockhash H
 			if inTable && !signerSet[meta.PublicKey] {
 				addOrUpdateTable(meta.PublicKey, meta.IsWritable)
 			} else {
-				addOrUpdateStatic(meta.PublicKey, meta.IsSigner, meta.IsWritable)
+				entries.addOrUpdate(meta.PublicKey, meta.IsSigner, meta.IsWritable)
 			}
 		}
 		// Program IDs are always static.
-		addOrUpdateStatic(ix.ProgramID(), false, false)
+		entries.addOrUpdate(ix.ProgramID(), false, false)
 	}
 
-	// Sort static accounts into 4 buckets (same as NewMessage).
-	// Two-pass: count first to pre-size each bucket slice exactly.
-	var bucketCounts [4]int
-	for _, e := range staticEntries {
-		switch {
-		case e.signer && e.writable:
-			bucketCounts[0]++
-		case e.signer && !e.writable:
-			bucketCounts[1]++
-		case !e.signer && e.writable:
-			bucketCounts[2]++
-		default:
-			bucketCounts[3]++
-		}
-	}
-	var buckets [4][]*entry
-	for i := range buckets {
-		buckets[i] = make([]*entry, 0, bucketCounts[i])
-	}
-	for _, e := range staticEntries {
-		switch {
-		case e.signer && e.writable:
-			buckets[0] = append(buckets[0], e)
-		case e.signer && !e.writable:
-			buckets[1] = append(buckets[1], e)
-		case !e.signer && e.writable:
-			buckets[2] = append(buckets[2], e)
-		default:
-			buckets[3] = append(buckets[3], e)
-		}
-	}
-	for i := range buckets {
-		sort.SliceStable(buckets[i], func(a, b int) bool {
-			return buckets[i][a].firstSeen < buckets[i][b].firstSeen
-		})
-	}
-
-	staticKeys := make([]PublicKey, 0, len(staticEntries))
-	for _, b := range buckets {
-		for _, e := range b {
-			staticKeys = append(staticKeys, e.pubkey)
-		}
-	}
+	staticKeys, header := entries.bucketAndOrder()
 	if len(staticKeys) > 256 {
 		return nil, fmt.Errorf("solana: NewMessageV0: %d static account keys exceeds maximum of 256", len(staticKeys))
 	}
 
-	header := MessageHeader{
-		NumRequiredSignatures:       uint8(len(buckets[0]) + len(buckets[1])),
-		NumReadonlySignedAccounts:   uint8(len(buckets[1])),
-		NumReadonlyUnsignedAccounts: uint8(len(buckets[3])),
-	}
-
-	// Build full index map: static keys first, then writable table accounts,
-	// then readonly table accounts (per table, in table order).
+	// Build full index map: static keys first, then writable table
+	// accounts, then readonly table accounts (per table, in table order).
 	keyIndex := make(map[PublicKey]int, len(staticKeys))
 	for i, k := range staticKeys {
 		keyIndex[k] = i
@@ -354,8 +305,6 @@ func NewMessageV0(payer PublicKey, instructions []Instruction, recentBlockhash H
 		if len(slots) == 0 {
 			continue
 		}
-		// Collect and sort writable then readonly slot indices.
-		// Pre-count to avoid reallocation inside the fill loop.
 		var nWritable int
 		for _, writable := range slots {
 			if writable {
@@ -393,31 +342,9 @@ func NewMessageV0(payer PublicKey, instructions []Instruction, recentBlockhash H
 		})
 	}
 
-	// Compile instructions.
-	compiled := make([]CompiledInstruction, 0, len(instructions))
-	for _, ix := range instructions {
-		programIdx, ok := keyIndex[ix.ProgramID()]
-		if !ok {
-			return nil, fmt.Errorf("solana: NewMessageV0: program id %s missing from key index", ix.ProgramID())
-		}
-		metas := ix.Accounts()
-		accIdxs := make(Uint8Slice, len(metas))
-		for i, m := range metas {
-			idx, ok := keyIndex[m.PublicKey]
-			if !ok {
-				return nil, fmt.Errorf("solana: NewMessageV0: account %s missing from key index", m.PublicKey)
-			}
-			accIdxs[i] = uint8(idx)
-		}
-		data, err := ix.Data()
-		if err != nil {
-			return nil, fmt.Errorf("solana: NewMessageV0: instruction data: %w", err)
-		}
-		compiled = append(compiled, CompiledInstruction{
-			ProgramIDIndex: uint8(programIdx),
-			Accounts:       accIdxs,
-			Data:           data,
-		})
+	compiled, err := compileInstructions(instructions, keyIndex, "NewMessageV0")
+	if err != nil {
+		return nil, err
 	}
 
 	return &Message{
