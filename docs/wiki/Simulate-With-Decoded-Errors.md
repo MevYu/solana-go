@@ -104,14 +104,17 @@ manually or generate them separately).
 
 ## Decoding from `getTransaction`
 
-`TransactionMeta.Err` has the same shape as `SimulateResult.Err`, so
-the same decoder works on already-landed transactions:
+`TransactionMeta.Err` is a `json.RawMessage`; `SimulateResult.Err` is
+the already-unmarshaled `any` form. `rpc.DecodeTransactionError` accepts
+both and treats nil / empty / `"null"` as success, so a single guard
+works:
 
 ```go
 res, _ := c.GetTransaction(ctx, sig)
-if res != nil && res.Meta != nil && res.Meta.Err != nil {
-    err := rpc.DecodeTransactionError(res.Meta.Err)
-    log.Println(err)
+if res != nil && res.Meta != nil {
+    if err := rpc.DecodeTransactionError(res.Meta.Err); err != nil {
+        log.Println(err)
+    }
 }
 ```
 

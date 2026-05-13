@@ -19,8 +19,8 @@ type Transaction struct {
 
 The signature count is compact-u16. Each signature is exactly
 `SignatureSize` (64) bytes. The message body follows immediately;
-its own `UnmarshalMessage` enforces end-of-input, so a transaction
-with trailing garbage after the message is rejected.
+its own `(*Message).UnmarshalBinary` enforces end-of-input, so a
+transaction with trailing garbage after the message is rejected.
 
 ## Constructing
 
@@ -62,7 +62,8 @@ _ = tx.Sign(ctx, payer)
 partial, _ := tx.Marshal()
 
 // Step 2 (later, elsewhere): another party signs slot 1.
-roundTripped, _ := solana.UnmarshalTransaction(partial)
+roundTripped := &solana.Transaction{}
+_ = roundTripped.UnmarshalBinary(partial)
 _ = roundTripped.Sign(ctx, other)
 ```
 
@@ -98,16 +99,20 @@ All errors are plain wrapped errors without panics.
 
 ```go
 data, err := tx.Marshal()
-out, err := solana.UnmarshalTransaction(data)
+
+out := &solana.Transaction{}
+err = out.UnmarshalBinary(data)
 ```
 
 - `Marshal` refuses to emit a transaction with more than `0xFFFF`
   signatures (protocol hard limit).
-- `UnmarshalTransaction` rejects empty input, a missing message
-  body, and any trailing bytes after the message.
-- The returned `*Transaction` does **not** alias the input
-  buffer; signatures are copied out and the embedded `Message`
-  is fully materialised by `UnmarshalMessage`.
+- `(*Transaction).UnmarshalBinary` rejects empty input, a missing
+  message body, and any trailing bytes after the message. It
+  implements `encoding.BinaryUnmarshaler`, paired with `Marshal` /
+  `MarshalBinary`.
+- The decoded `Transaction` does **not** alias the input buffer;
+  signatures are copied out and the embedded `Message` is fully
+  materialised by `(*Message).UnmarshalBinary` internally.
 
 ## Verify signatures locally
 

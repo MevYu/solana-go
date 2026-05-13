@@ -25,7 +25,7 @@ import (
 ## API
 
 ```go
-func PriorityFeeStatsFromFees(fees []rpc.PrioritizationFee) *PriorityFeeStats
+func PriorityFeeStatsFromFees(fees []solana.PrioritizationFee) *PriorityFeeStats
 
 type PriorityFeeStats struct {
     P50     uint64 // median percentile

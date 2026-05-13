@@ -30,37 +30,37 @@ type GetBlockResult struct {
     Transactions      []BlockTransaction
     BlockHeight       *uint64
     BlockTime         *int64
-    Rewards           []any
+    Rewards           []solana.Reward
 }
 
 type BlockTransaction struct {
-    Transaction AccountData      // [value, encoding] form
-    Meta        *TransactionMeta
-    Version     any              // "legacy" or 0
+    Transaction solana.EncodedData      // [value, encoding] form, eagerly decoded
+    Meta        *solana.TransactionMeta
+    Version     any                     // "legacy" or 0
 }
 ```
 
-`Transactions[i].Transaction.Bytes()` decodes the wire bytes;
-`solana.UnmarshalTransaction(bytes)` gives you a typed
-`*Transaction`.
+`Transactions[i].Transaction.Bytes` holds the wire bytes (the
+`UnmarshalJSON` on `EncodedData` already decoded base64 / base58 /
+base64+zstd). Hand it to `(*Transaction).UnmarshalBinary` to get
+a typed `*Transaction`:
 
 ```go
 for _, bt := range block.Transactions {
-    raw, _ := bt.Transaction.Bytes()
-    tx, _ := solana.UnmarshalTransaction(raw)
+    tx := &solana.Transaction{}
+    if err := tx.UnmarshalBinary(bt.Transaction.Bytes); err != nil {
+        continue
+    }
     _ = tx
 }
 ```
 
 The `Meta` field is the typed [TransactionMeta](Transaction-Query)
-struct holding fee, logs, balance changes.
-
-### Rewards, inner instructions, token balances
-
-`Rewards`, `InnerInstructions`, and `Pre/PostTokenBalances` are
-currently retained as `[]any` until richer typed models land.
-Use them if you need the raw shape; expect typed variants in
-follow-up releases.
+struct holding fee, logs, balance changes,
+`InnerInstructions []InnerInstruction`,
+`PreTokenBalances / PostTokenBalances []TokenBalance`,
+`Rewards []Reward`, and `LoadedAddresses` — all decoded into
+real Go structs, no `[]any` raw shapes.
 
 ## `GetBlocks`
 
