@@ -140,6 +140,18 @@ type MessageAddressTableLookup struct {
 	ReadonlyIndexes Uint8Slice
 }
 
+// Uint8Slice is a slice of uint8s that can be marshaled as numbers instead of a byte slice.
+type Uint8Slice []uint8
+
+// MarshalJSON implements json.Marshaler.
+func (u8s Uint8Slice) MarshalJSON() ([]byte, error) {
+	out := make([]uint16, len(u8s))
+	for i, idx := range u8s {
+		out[i] = uint16(idx)
+	}
+	return json.Marshal(out)
+}
+
 // Message is the serialized body of a Solana transaction. It supports
 // both the legacy format (Version == MessageVersionLegacy) and the
 // versioned format (Version == MessageVersion0).
