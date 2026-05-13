@@ -431,6 +431,118 @@ func TestMessageVersion_MarshalJSON(t *testing.T) {
 	}
 }
 
+func TestMessage_Signers(t *testing.T) {
+	m := &Message{
+		Header: MessageHeader{NumRequiredSignatures: 2},
+		AccountKeys: []PublicKey{
+			{0x01}, {0x02}, {0x03}, {0x04},
+		},
+	}
+	got := m.Signers()
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	if got[0] != (PublicKey{0x01}) || got[1] != (PublicKey{0x02}) {
+		t.Errorf("Signers = %+v, want first two keys", got)
+	}
+}
+
+func TestMessage_Signers_Empty(t *testing.T) {
+	m := &Message{
+		Header:      MessageHeader{NumRequiredSignatures: 0},
+		AccountKeys: []PublicKey{{0x01}},
+	}
+	if got := m.Signers(); len(got) != 0 {
+		t.Errorf("Signers = %+v, want empty", got)
+	}
+}
+
+func TestMessage_ResolvedAccountKeys_Legacy(t *testing.T) {
+	m := makeLegacyMessage(t)
+	got, err := m.ResolvedAccountKeys(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(m.AccountKeys) {
+		t.Fatalf("len = %d, want %d", len(got), len(m.AccountKeys))
+	}
+	for i := range m.AccountKeys {
+		if got[i] != m.AccountKeys[i] {
+			t.Errorf("key[%d] mismatch", i)
+		}
+	}
+}
+
+func TestMessage_ResolvedAccountKeys_V0(t *testing.T) {
+	altA := PublicKey{0xa1}
+	altB := PublicKey{0xb1}
+	wA1, wA2 := PublicKey{0xa1, 0x01}, PublicKey{0xa1, 0x02}
+	rA1 := PublicKey{0xa1, 0x03}
+	wB1 := PublicKey{0xb1, 0x01}
+	rB1, rB2 := PublicKey{0xb1, 0x02}, PublicKey{0xb1, 0x03}
+
+	m := &Message{
+		Version:     MessageVersion0,
+		Header:      MessageHeader{NumRequiredSignatures: 1},
+		AccountKeys: []PublicKey{{0x01}, {0x02}},
+		AddressTableLookups: []MessageAddressTableLookup{
+			{AccountKey: altA, WritableIndexes: Uint8Slice{0, 1}, ReadonlyIndexes: Uint8Slice{2}},
+			{AccountKey: altB, WritableIndexes: Uint8Slice{0}, ReadonlyIndexes: Uint8Slice{1, 2}},
+		},
+	}
+	alts := map[PublicKey][]PublicKey{
+		altA: {wA1, wA2, rA1},
+		altB: {wB1, rB1, rB2},
+	}
+	got, err := m.ResolvedAccountKeys(alts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []PublicKey{
+		{0x01}, {0x02}, // static
+		wA1, wA2, wB1, // writable across all ALTs
+		rA1, rB1, rB2, // readonly across all ALTs
+	}
+	if len(got) != len(want) {
+		t.Fatalf("len = %d, want %d (%+v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("[%d] = %x, want %x", i, got[i], want[i])
+		}
+	}
+}
+
+func TestMessage_ResolvedAccountKeys_MissingALT(t *testing.T) {
+	m := &Message{
+		Version:     MessageVersion0,
+		AccountKeys: []PublicKey{{0x01}},
+		AddressTableLookups: []MessageAddressTableLookup{
+			{AccountKey: PublicKey{0xaa}, WritableIndexes: Uint8Slice{0}},
+		},
+	}
+	_, err := m.ResolvedAccountKeys(nil)
+	if err == nil || !strings.Contains(err.Error(), "not in alts map") {
+		t.Errorf("err = %v, want missing-ALT error", err)
+	}
+}
+
+func TestMessage_ResolvedAccountKeys_IndexOutOfRange(t *testing.T) {
+	alt := PublicKey{0xaa}
+	m := &Message{
+		Version:     MessageVersion0,
+		AccountKeys: []PublicKey{{0x01}},
+		AddressTableLookups: []MessageAddressTableLookup{
+			{AccountKey: alt, WritableIndexes: Uint8Slice{5}},
+		},
+	}
+	alts := map[PublicKey][]PublicKey{alt: {{0xff}}}
+	_, err := m.ResolvedAccountKeys(alts)
+	if err == nil || !strings.Contains(err.Error(), "out of range") {
+		t.Errorf("err = %v, want out-of-range error", err)
+	}
+}
+
 func TestMessageVersion_RoundTrip(t *testing.T) {
 	for _, v := range []MessageVersion{MessageVersionLegacy, MessageVersion0, MessageVersion(42)} {
 		raw, err := json.Marshal(v)
