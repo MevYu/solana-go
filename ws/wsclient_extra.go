@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"encoding/json"
 
 	solana "github.com/MevYu/solana-go"
 	"github.com/MevYu/solana-go/jsonrpc"
@@ -107,7 +108,7 @@ func (c *Client) SignatureSubscribe(ctx context.Context, sig solana.Signature, c
 // directly (the inner slot) rather than from the context envelope.
 type BlockNotification struct {
 	Slot  uint64              `json:"slot"`
-	Err   any                 `json:"err"`
+	Err   json.RawMessage     `json:"err,omitempty"`
 	Block *rpc.GetBlockResult `json:"block"`
 }
 

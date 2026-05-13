@@ -3,11 +3,23 @@ package solana
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/MevYu/solana-go/encoding"
 )
 
 // MessageVersion identifies the wire-format version of a Message.
+//
+// On-wire, the version is the message's first byte: a legacy message
+// uses MessageVersionLegacy (0xFF, an in-memory sentinel that is
+// never written to the wire), and a versioned message stores
+// `versionPrefixMask | version` as that byte.
+//
+// JSON-RPC responses (getTransaction, getBlock, blockSubscribe) emit
+// the version as either the string "legacy" or the integer version
+// number; MessageVersion's UnmarshalJSON / MarshalJSON convert both
+// directions, so callers can use a single typed Version field across
+// the wire-format and the RPC envelope.
 type MessageVersion uint8
 
 const (
@@ -22,6 +34,40 @@ const (
 	// message begins with the byte versionPrefixMask | 0 == 0x80.
 	MessageVersion0 MessageVersion = 0
 )
+
+// UnmarshalJSON decodes the JSON-RPC representation of a transaction
+// version. Accepted forms:
+//
+//   - JSON null, empty string, or "legacy" → MessageVersionLegacy
+//   - any unsigned integer N → MessageVersion(N)
+//
+// The decoder does not enforce the supported-version range — that
+// check happens in the wire-format Marshal / DecodeMessage path. A
+// JSON response carrying an unknown integer version is accepted here
+// and only rejected when the caller tries to act on it.
+func (v *MessageVersion) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	switch s {
+	case "null", `""`, `"legacy"`:
+		*v = MessageVersionLegacy
+		return nil
+	}
+	n, err := strconv.ParseUint(s, 10, 8)
+	if err != nil {
+		return fmt.Errorf("solana: MessageVersion: %w", err)
+	}
+	*v = MessageVersion(n)
+	return nil
+}
+
+// MarshalJSON emits the JSON-RPC representation: "legacy" for the
+// legacy sentinel, otherwise the integer version number.
+func (v MessageVersion) MarshalJSON() ([]byte, error) {
+	if v == MessageVersionLegacy {
+		return []byte(`"legacy"`), nil
+	}
+	return []byte(strconv.FormatUint(uint64(v), 10)), nil
+}
 
 // versionPrefixMask is the high bit of the first byte that
 // distinguishes a versioned message from a legacy one.

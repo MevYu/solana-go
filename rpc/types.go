@@ -34,7 +34,7 @@ type SimulateResult struct {
 type BlockTransaction struct {
 	Transaction *solana.Transaction     `json:"transaction"`
 	Meta        *solana.TransactionMeta `json:"meta"`
-	Version     any                     `json:"version"`
+	Version     solana.MessageVersion   `json:"version"`
 }
 
 // GetBlockResult is the decoded response of GetBlock.

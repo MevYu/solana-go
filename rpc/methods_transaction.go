@@ -25,7 +25,7 @@ type GetTransactionResult struct {
 	BlockTime   *int64                  `json:"blockTime"`
 	Meta        *solana.TransactionMeta `json:"meta"`
 	Transaction *solana.Transaction     `json:"transaction"`
-	Version     any                     `json:"version"`
+	Version     solana.MessageVersion   `json:"version"`
 }
 
 // GetTransaction fetches a single transaction by signature.
