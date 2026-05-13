@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/MevYu/solana-go/encoding"
@@ -163,6 +164,30 @@ func (tx *Transaction) Marshal() ([]byte, error) {
 		return nil, err
 	}
 	return append([]byte(nil), e.Bytes()...), nil
+}
+
+// UnmarshalJSON decodes the [value, encoding] tuple form the Solana
+// JSON-RPC returns for transaction wire bytes (the shape used by
+// getTransaction and getBlock under encoding=base64 / base58 /
+// base64+zstd), then parses the decoded bytes into a typed
+// Transaction. Callers therefore get tx.Message.Instructions etc.
+// directly without a separate UnmarshalBinary step.
+//
+// json / jsonParsed encodings are not supported: the RPC returns a
+// nested object in those modes, which is a different decoder. Request
+// a binary encoding (base64 by default) to use this code path.
+func (tx *Transaction) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	var d EncodedData
+	if err := json.Unmarshal(data, &d); err != nil {
+		return fmt.Errorf("solana: Transaction: %w", err)
+	}
+	if len(d.Bytes) == 0 {
+		return nil
+	}
+	return tx.UnmarshalBinary(d.Bytes)
 }
 
 // UnmarshalBinary parses a wire-format Solana transaction into tx,

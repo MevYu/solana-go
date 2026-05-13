@@ -27,9 +27,12 @@ type SimulateResult struct {
 	ReturnData    *SimulationReturnData `json:"returnData"`
 }
 
-// BlockTransaction is a single entry in the transactions array of a GetBlock response.
+// BlockTransaction is a single entry in the transactions array of a
+// GetBlock response. Transaction is fully decoded via
+// Transaction.UnmarshalJSON when the encoding is base64 / base58 /
+// base64+zstd.
 type BlockTransaction struct {
-	Transaction solana.EncodedData      `json:"transaction"`
+	Transaction *solana.Transaction     `json:"transaction"`
 	Meta        *solana.TransactionMeta `json:"meta"`
 	Version     any                     `json:"version"`
 }

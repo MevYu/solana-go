@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -274,6 +277,53 @@ func TestTransaction_Unmarshal_TrailingBytes(t *testing.T) {
 	data = append(data, 0xFF)
 	if err := new(Transaction).UnmarshalBinary(data); err == nil {
 		t.Fatal("expected error for trailing bytes")
+	}
+}
+
+// ---------------------------------------------------------------------
+// UnmarshalJSON — [value, encoding] tuple form
+// ---------------------------------------------------------------------
+
+func TestTransaction_UnmarshalJSON_Base64(t *testing.T) {
+	tx, kps := makeSimpleTx(t, 1)
+	if err := tx.Sign(context.Background(), kps[0]); err != nil {
+		t.Fatal(err)
+	}
+	wire, err := tx.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := fmt.Sprintf(`["%s","base64"]`, base64.StdEncoding.EncodeToString(wire))
+
+	var out Transaction
+	if err := json.Unmarshal([]byte(payload), &out); err != nil {
+		t.Fatalf("UnmarshalJSON: %v", err)
+	}
+	if len(out.Signatures) != 1 || !out.Signatures[0].Equal(tx.Signatures[0]) {
+		t.Errorf("signature mismatch after JSON round-trip")
+	}
+	if !out.Message.RecentBlockhash.Equal(tx.Message.RecentBlockhash) {
+		t.Errorf("blockhash mismatch")
+	}
+	if len(out.Message.Instructions) != len(tx.Message.Instructions) {
+		t.Fatalf("instruction count = %d, want %d", len(out.Message.Instructions), len(tx.Message.Instructions))
+	}
+}
+
+func TestTransaction_UnmarshalJSON_Null(t *testing.T) {
+	var tx Transaction
+	if err := json.Unmarshal([]byte("null"), &tx); err != nil {
+		t.Fatalf("null should not error: %v", err)
+	}
+}
+
+func TestTransaction_UnmarshalJSON_JSONParsedRejected(t *testing.T) {
+	// jsonParsed/json encodings emit a nested object — we don't support
+	// them in this code path and EncodedData refuses to decode them.
+	payload := `["foo","jsonParsed"]`
+	var tx Transaction
+	if err := json.Unmarshal([]byte(payload), &tx); err == nil {
+		t.Fatal("expected error for jsonParsed encoding")
 	}
 }
 

@@ -34,26 +34,28 @@ type GetBlockResult struct {
 }
 
 type BlockTransaction struct {
-    Transaction solana.EncodedData      // [value, encoding] form, eagerly decoded
+    Transaction *solana.Transaction      // fully decoded structure
     Meta        *solana.TransactionMeta
-    Version     any                     // "legacy" or 0
+    Version     any                      // "legacy" or 0
 }
 ```
 
-`Transactions[i].Transaction.Bytes` holds the wire bytes (the
-`UnmarshalJSON` on `EncodedData` already decoded base64 / base58 /
-base64+zstd). Hand it to `(*Transaction).UnmarshalBinary` to get
-a typed `*Transaction`:
+`Transactions[i].Transaction` is already a structured `*Transaction`:
+`Transaction.UnmarshalJSON` reads the `[value, encoding]` tuple,
+decodes base64 / base58 / base64+zstd to wire bytes, and then parses
+those bytes into a typed transaction. Read `tx.Message.Instructions`
+etc. directly:
 
 ```go
 for _, bt := range block.Transactions {
-    tx := &solana.Transaction{}
-    if err := tx.UnmarshalBinary(bt.Transaction.Bytes); err != nil {
-        continue
+    for _, ix := range bt.Transaction.Message.Instructions {
+        _ = ix
     }
-    _ = tx
 }
 ```
+
+Only binary encodings are supported on this path; `json` /
+`jsonParsed` return a nested object and are not handled.
 
 The `Meta` field is the typed [TransactionMeta](Transaction-Query)
 struct holding fee, logs, balance changes,
