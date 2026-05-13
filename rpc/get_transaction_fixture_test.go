@@ -349,6 +349,6 @@ type fixtureInstruction struct {
 	data      []byte
 }
 
-func (i *fixtureInstruction) ProgramID() solana.PublicKey    { return i.programID }
+func (i *fixtureInstruction) ProgramID() solana.PublicKey     { return i.programID }
 func (i *fixtureInstruction) Accounts() []*solana.AccountMeta { return i.accounts }
 func (i *fixtureInstruction) Data() ([]byte, error)           { return i.data, nil }

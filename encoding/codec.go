@@ -19,18 +19,6 @@ func unmarshalerReflectType() reflect.Type {
 	return reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 }
 
-// sizePrefix selects the length-prefix width for slice and string fields.
-// Only two modes are wired: bincode's u64 (default) and Borsh's u32, flipped
-// per-Decoder via UseBorsh. There is no per-field override — instructions
-// with bespoke widths (shortvec, u8, …) are hand-written using the Reader /
-// Encoder API rather than reflected through the plan cache.
-type sizePrefix uint8
-
-const (
-	prefixU64 sizePrefix = iota // bincode default
-	prefixU32                   // Borsh
-)
-
 // readLen reads a slice / string length using the Decoder's configured prefix
 // width. All widths are promoted to uint64 so call sites have one integer
 // type to range over regardless of on-wire width.
