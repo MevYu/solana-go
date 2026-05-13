@@ -12,11 +12,19 @@ import (
 )
 
 // GetTransactionResult is the decoded response of GetTransaction.
+//
+// Transaction is the fully decoded structured form: the JSON-RPC
+// payload is `["<encoded-bytes>", "<encoding>"]`, and
+// Transaction.UnmarshalJSON decodes those bytes through to a typed
+// Transaction. Read tx.Message.Instructions etc. directly — no extra
+// UnmarshalBinary step is needed. Only binary encodings (base64,
+// base58, base64+zstd) are supported; json / jsonParsed return a
+// nested object and are not handled.
 type GetTransactionResult struct {
 	Slot        uint64                  `json:"slot"`
 	BlockTime   *int64                  `json:"blockTime"`
 	Meta        *solana.TransactionMeta `json:"meta"`
-	Transaction solana.EncodedData      `json:"transaction"`
+	Transaction *solana.Transaction     `json:"transaction"`
 	Version     any                     `json:"version"`
 }
 

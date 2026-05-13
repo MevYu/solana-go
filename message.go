@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/MevYu/solana-go/encoding"
@@ -262,6 +263,24 @@ func (m *Message) validate() error {
 		return fmt.Errorf("solana: message: unsupported version %d", m.Version)
 	}
 	return nil
+}
+
+// UnmarshalJSON decodes the [value, encoding] tuple form Solana
+// JSON-RPC returns for raw message bytes, then parses the decoded
+// bytes into a typed Message. See Transaction.UnmarshalJSON for the
+// same pattern at the transaction level.
+func (m *Message) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	var d EncodedData
+	if err := json.Unmarshal(data, &d); err != nil {
+		return fmt.Errorf("solana: Message: %w", err)
+	}
+	if len(d.Bytes) == 0 {
+		return nil
+	}
+	return m.UnmarshalBinary(d.Bytes)
 }
 
 // UnmarshalBinary parses data as a Solana Message and populates m,

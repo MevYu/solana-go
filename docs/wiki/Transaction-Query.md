@@ -16,27 +16,25 @@ func (c *Client) GetTransaction(
 ```go
 type GetTransactionResult struct {
     Slot        uint64
-    BlockTime   *int64           // UNIX timestamp, or nil if unknown
-    Meta        *TransactionMeta
-    Transaction AccountData      // [value, encoding] wire form
-    Version     any              // "legacy" or 0
+    BlockTime   *int64                  // UNIX timestamp, or nil if unknown
+    Meta        *solana.TransactionMeta
+    Transaction *solana.Transaction     // fully decoded structure
+    Version     any                     // "legacy" or 0
 }
 
+// solana.TransactionMeta
 type TransactionMeta struct {
-    Err                  any
+    Err                  json.RawMessage  // empty / "null" on success
     Fee                  uint64
     PreBalances          []uint64
     PostBalances         []uint64
     LogMessages          []string
-    ComputeUnitsConsumed uint64
-    InnerInstructions    []any
-    PreTokenBalances     []any
-    PostTokenBalances    []any
-    Rewards              []any
-    LoadedAddresses      *struct {
-        Writable []string
-        Readonly []string
-    }
+    ComputeUnitsConsumed *uint64
+    InnerInstructions    []InnerInstruction
+    PreTokenBalances     []TokenBalance
+    PostTokenBalances    []TokenBalance
+    Rewards              []Reward
+    LoadedAddresses      *LoadedAddresses
 }
 ```
 
@@ -67,19 +65,23 @@ if res == nil {
 
 ## Decoding the transaction body
 
-`Transaction` is a `solana.EncodedData` value whose `Bytes` field
-already holds the wire bytes (the JSON unmarshaller eagerly
-decodes base64 / base58 / base64+zstd). Hand it to
-`(*Transaction).UnmarshalBinary`:
+`res.Transaction` is a fully decoded `*solana.Transaction`.
+`Transaction.UnmarshalJSON` reads the `[value, encoding]` JSON
+tuple, decodes base64 / base58 / base64+zstd to wire bytes, and
+parses them into the structured type in one pass — no manual
+`UnmarshalBinary` step:
 
 ```go
-tx := &solana.Transaction{}
-if err := tx.UnmarshalBinary(res.Transaction.Bytes); err != nil {
-    return err
-}
+tx := res.Transaction
 // tx.Message has the account keys, instructions, blockhash
 // tx.Signatures has the signatures
+for _, ix := range tx.Message.Instructions {
+    _ = ix
+}
 ```
+
+`json` / `jsonParsed` encodings are not supported here — request a
+binary encoding (base64 is the SDK default).
 
 ## Reading execution meta
 
@@ -126,15 +128,14 @@ if res == nil {
     return fmt.Errorf("signature %s not found", sig)
 }
 
-tx := &solana.Transaction{}
-_ = tx.UnmarshalBinary(res.Transaction.Bytes)
+tx := res.Transaction
 
 var cus uint64
 if res.Meta.ComputeUnitsConsumed != nil {
     cus = *res.Meta.ComputeUnitsConsumed
 }
-fmt.Printf("slot %d, fee %d lamports, %d CUs\n",
-    res.Slot, res.Meta.Fee, cus)
+fmt.Printf("slot %d, fee %d lamports, %d CUs, %d ixs\n",
+    res.Slot, res.Meta.Fee, cus, len(tx.Message.Instructions))
 
 for i, line := range res.Meta.LogMessages {
     fmt.Printf("  %3d: %s\n", i, line)
