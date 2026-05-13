@@ -309,6 +309,67 @@ func (m *Message) marshalInto(e *encoding.Encoder) error {
 	return nil
 }
 
+// Signers returns the static account keys that must sign this message.
+// Signers are always static (the runtime verifies signatures before
+// resolving address-table lookups), so this is identical for legacy and
+// v0 messages.
+func (m *Message) Signers() []PublicKey {
+	return m.AccountKeys[:m.Header.NumRequiredSignatures]
+}
+
+// ResolvedAccountKeys flattens a v0 message's index space into a single
+// []PublicKey slice that callers can index with raw instruction account
+// indices. alts maps each AddressTableLookup.AccountKey to that lookup
+// table's full address list (TableState.Addresses); the caller is
+// responsible for fetching ALT state via rpc.Client.GetAddressLookupTable
+// or GetMultipleAccounts before invoking this.
+//
+// Index layout (Solana protocol order):
+//
+//	[0, len(AccountKeys))                       static keys
+//	[..., +Σ lookups[i].WritableIndexes)        ALT writable, in AddressTableLookups order
+//	[..., +Σ lookups[i].ReadonlyIndexes)        ALT readonly, in AddressTableLookups order
+//
+// For legacy messages (AddressTableLookups empty) alts is unused and
+// m.AccountKeys is returned directly without copying. To resolve a
+// specific instruction's accounts, call this once per message and index
+// resolved[ix.Accounts[i]].
+func (m *Message) ResolvedAccountKeys(alts map[PublicKey][]PublicKey) ([]PublicKey, error) {
+	if len(m.AddressTableLookups) == 0 {
+		return m.AccountKeys, nil
+	}
+	total := len(m.AccountKeys)
+	for i := range m.AddressTableLookups {
+		total += len(m.AddressTableLookups[i].WritableIndexes) + len(m.AddressTableLookups[i].ReadonlyIndexes)
+	}
+	out := make([]PublicKey, 0, total)
+	out = append(out, m.AccountKeys...)
+	for i := range m.AddressTableLookups {
+		lk := &m.AddressTableLookups[i]
+		addrs, ok := alts[lk.AccountKey]
+		if !ok {
+			return nil, fmt.Errorf("solana: message: ALT %s not in alts map", lk.AccountKey)
+		}
+		for _, idx := range lk.WritableIndexes {
+			if int(idx) >= len(addrs) {
+				return nil, fmt.Errorf("solana: message: ALT %s writable index %d out of range (table has %d entries)", lk.AccountKey, idx, len(addrs))
+			}
+			out = append(out, addrs[idx])
+		}
+	}
+	for i := range m.AddressTableLookups {
+		lk := &m.AddressTableLookups[i]
+		addrs := alts[lk.AccountKey] // presence already validated above
+		for _, idx := range lk.ReadonlyIndexes {
+			if int(idx) >= len(addrs) {
+				return nil, fmt.Errorf("solana: message: ALT %s readonly index %d out of range (table has %d entries)", lk.AccountKey, idx, len(addrs))
+			}
+			out = append(out, addrs[idx])
+		}
+	}
+	return out, nil
+}
+
 func (m *Message) validate() error {
 	switch m.Version {
 	case MessageVersionLegacy:
