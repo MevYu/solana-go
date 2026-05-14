@@ -543,6 +543,70 @@ func TestMessage_ResolvedAccountKeys_IndexOutOfRange(t *testing.T) {
 	}
 }
 
+func TestCompiledInstruction_Discriminator(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		c := &CompiledInstruction{Data: []byte{1, 2, 3, 4, 5, 6, 7, 8, 0xaa, 0xbb}}
+		disc, payload, ok := c.Discriminator()
+		if !ok {
+			t.Fatal("ok = false, want true")
+		}
+		if disc != [8]byte{1, 2, 3, 4, 5, 6, 7, 8} {
+			t.Errorf("disc = %x", disc)
+		}
+		if !bytes.Equal(payload, []byte{0xaa, 0xbb}) {
+			t.Errorf("payload = %x", payload)
+		}
+	})
+	t.Run("exact_8", func(t *testing.T) {
+		c := &CompiledInstruction{Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}}
+		disc, payload, ok := c.Discriminator()
+		if !ok {
+			t.Fatal("ok = false")
+		}
+		if disc != [8]byte{1, 2, 3, 4, 5, 6, 7, 8} {
+			t.Errorf("disc = %x", disc)
+		}
+		if len(payload) != 0 {
+			t.Errorf("payload non-empty: %x", payload)
+		}
+	})
+	t.Run("short", func(t *testing.T) {
+		c := &CompiledInstruction{Data: []byte{1, 2, 3}}
+		if _, _, ok := c.Discriminator(); ok {
+			t.Error("ok = true on 3-byte data, want false")
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		c := &CompiledInstruction{Data: nil}
+		if _, _, ok := c.Discriminator(); ok {
+			t.Error("ok = true on nil data, want false")
+		}
+	})
+}
+
+func TestCompiledInstruction_Discriminator1(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		c := &CompiledInstruction{Data: []byte{0x03, 0xde, 0xad}}
+		tag, payload, ok := c.Discriminator1()
+		if !ok || tag != 0x03 || !bytes.Equal(payload, []byte{0xde, 0xad}) {
+			t.Fatalf("tag=%x payload=%x ok=%v", tag, payload, ok)
+		}
+	})
+	t.Run("single_byte", func(t *testing.T) {
+		c := &CompiledInstruction{Data: []byte{0x09}}
+		tag, payload, ok := c.Discriminator1()
+		if !ok || tag != 0x09 || len(payload) != 0 {
+			t.Fatalf("tag=%x payload=%x ok=%v", tag, payload, ok)
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		c := &CompiledInstruction{Data: nil}
+		if _, _, ok := c.Discriminator1(); ok {
+			t.Error("ok = true on nil data, want false")
+		}
+	})
+}
+
 func TestMessageVersion_RoundTrip(t *testing.T) {
 	for _, v := range []MessageVersion{MessageVersionLegacy, MessageVersion0, MessageVersion(42)} {
 		raw, err := json.Marshal(v)
