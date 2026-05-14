@@ -1,4 +1,4 @@
-package solana
+package helpers
 
 import "crypto/sha256"
 

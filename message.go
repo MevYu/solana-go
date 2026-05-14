@@ -122,28 +122,6 @@ type CompiledInstruction struct {
 	Data []byte
 }
 
-// Discriminator splits c.Data into an 8-byte tag (Anchor sighash form)
-// and the remaining payload. ok is false when Data is shorter than 8
-// bytes; use this instead of [8]byte(c.Data[:8]) to avoid panicking on
-// short instruction data (e.g. memo, noop).
-func (c *CompiledInstruction) Discriminator() (disc [8]byte, payload []byte, ok bool) {
-	if len(c.Data) < 8 {
-		return
-	}
-	copy(disc[:], c.Data[:8])
-	return disc, c.Data[8:], true
-}
-
-// Discriminator1 splits c.Data into a single-byte tag and the remaining
-// payload. SPL Token, System, Stake, and most native (non-Anchor)
-// programs use this layout. ok is false on empty Data.
-func (c *CompiledInstruction) Discriminator1() (tag byte, payload []byte, ok bool) {
-	if len(c.Data) == 0 {
-		return
-	}
-	return c.Data[0], c.Data[1:], true
-}
-
 // MessageAddressTableLookup is a v0-only reference to an Address
 // Lookup Table that supplies additional accounts beyond the static
 // keys in a Message.
