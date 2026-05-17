@@ -291,49 +291,72 @@ func NewMessageV0(payer PublicKey, instructions []Instruction, recentBlockhash H
 		return nil, fmt.Errorf("solana: NewMessageV0: %d static account keys exceeds maximum of 256", len(staticKeys))
 	}
 
-	// Build full index map: static keys first, then writable table
-	// accounts, then readonly table accounts (per table, in table order).
+	// Build full index map matching the Solana resolution order: static
+	// keys, then ALL writable table accounts across every table, then ALL
+	// readonly table accounts across every table. This must match
+	// Message.ResolvedAccountKeys; per-table interleaving would silently
+	// corrupt compiled instruction account indices.
 	keyIndex := make(map[PublicKey]int, len(staticKeys))
 	for i, k := range staticKeys {
 		keyIndex[k] = i
 	}
-	next := len(staticKeys)
 
-	var lookups []MessageAddressTableLookup
-	for ti, t := range tables {
+	type tableSlots struct {
+		writable, readonly []int
+	}
+	perTable := make([]tableSlots, len(tables))
+	emit := make([]bool, len(tables))
+	for ti := range tables {
 		slots := tableAccounts[ti]
 		if len(slots) == 0 {
 			continue
 		}
-		var nWritable int
-		for _, writable := range slots {
-			if writable {
-				nWritable++
-			}
-		}
-		writableSlots := make([]int, 0, nWritable)
-		readonlySlots := make([]int, 0, len(slots)-nWritable)
+		emit[ti] = true
+		ts := tableSlots{}
 		for slotIdx, writable := range slots {
 			if writable {
-				writableSlots = append(writableSlots, slotIdx)
+				ts.writable = append(ts.writable, slotIdx)
 			} else {
-				readonlySlots = append(readonlySlots, slotIdx)
+				ts.readonly = append(ts.readonly, slotIdx)
 			}
 		}
-		sort.Ints(writableSlots)
-		sort.Ints(readonlySlots)
+		sort.Ints(ts.writable)
+		sort.Ints(ts.readonly)
+		perTable[ti] = ts
+	}
 
-		writableIdxs := make([]uint8, len(writableSlots))
-		for i, s := range writableSlots {
-			writableIdxs[i] = uint8(s)
+	next := len(staticKeys)
+	for ti, t := range tables {
+		if !emit[ti] {
+			continue
+		}
+		for _, s := range perTable[ti].writable {
 			keyIndex[t.Addresses[s]] = next
 			next++
 		}
-		readonlyIdxs := make([]uint8, len(readonlySlots))
-		for i, s := range readonlySlots {
-			readonlyIdxs[i] = uint8(s)
+	}
+	for ti, t := range tables {
+		if !emit[ti] {
+			continue
+		}
+		for _, s := range perTable[ti].readonly {
 			keyIndex[t.Addresses[s]] = next
 			next++
+		}
+	}
+
+	var lookups []MessageAddressTableLookup
+	for ti, t := range tables {
+		if !emit[ti] {
+			continue
+		}
+		writableIdxs := make([]uint8, len(perTable[ti].writable))
+		for i, s := range perTable[ti].writable {
+			writableIdxs[i] = uint8(s)
+		}
+		readonlyIdxs := make([]uint8, len(perTable[ti].readonly))
+		for i, s := range perTable[ti].readonly {
+			readonlyIdxs[i] = uint8(s)
 		}
 		lookups = append(lookups, MessageAddressTableLookup{
 			AccountKey:      t.AccountKey,
