@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/mr-tron/base58"
 )
 
 func makeLegacyMessage(t *testing.T) *Message {
@@ -556,5 +558,64 @@ func TestMessageVersion_RoundTrip(t *testing.T) {
 		if back != v {
 			t.Errorf("round-trip %d -> %s -> %d", v, raw, back)
 		}
+	}
+}
+
+// ######## CompiledInstruction base58 data ########
+
+// getTransaction/getBlock return meta.innerInstructions[].instructions[].data
+// as base58. Before CompiledInstruction.Data was typed Base58Data, the
+// encoding/json default decoded []byte as base64 and failed with
+// "illegal base64 data ..." on every transaction containing CPIs.
+func TestCompiledInstructionUnmarshalJSONBase58Data(t *testing.T) {
+	payload := []byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 42}
+	dataB58 := base58.Encode(payload)
+
+	raw := `{"programIdIndex":4,"accounts":[1,2,3],"data":"` + dataB58 + `","stackHeight":2}`
+
+	var ci CompiledInstruction
+	if err := json.Unmarshal([]byte(raw), &ci); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	if ci.ProgramIDIndex != 4 {
+		t.Errorf("ProgramIDIndex = %d, want 4", ci.ProgramIDIndex)
+	}
+	if got := []uint8(ci.Accounts); len(got) != 3 || got[0] != 1 || got[2] != 3 {
+		t.Errorf("Accounts = %v, want [1 2 3]", got)
+	}
+	if string(ci.Data) != string(payload) {
+		t.Errorf("Data = %x, want %x", ci.Data, payload)
+	}
+
+	// round-trip: data must re-marshal as base58, not base64
+	out, err := json.Marshal(ci)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	var back CompiledInstruction
+	if err := json.Unmarshal(out, &back); err != nil {
+		t.Fatalf("re-unmarshal failed: %v", err)
+	}
+	if string(back.Data) != string(payload) {
+		t.Errorf("round-trip Data = %x, want %x", back.Data, payload)
+	}
+}
+
+// ######## Signers clamp ########
+
+// Signers must not panic when a message decoded from untrusted bytes
+// claims more required signers than it has account keys.
+func TestMessageSigners_ClampsToAccountKeys(t *testing.T) {
+	m := &Message{
+		AccountKeys: []PublicKey{{0x01}, {0x02}},
+	}
+	m.Header.NumRequiredSignatures = 5 // > len(AccountKeys)
+
+	got := m.Signers()
+	if len(got) != 2 {
+		t.Fatalf("Signers len = %d, want 2 (clamped)", len(got))
+	}
+	if !got[0].Equal(PublicKey{0x01}) || !got[1].Equal(PublicKey{0x02}) {
+		t.Errorf("Signers = %v", got)
 	}
 }
