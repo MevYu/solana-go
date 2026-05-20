@@ -118,8 +118,11 @@ type CompiledInstruction struct {
 	// instead of as a base64 string.
 	Accounts Uint8Slice
 
-	// Data is the serialized instruction payload.
-	Data []byte
+	// Data is the serialized instruction payload. On the JSON-RPC wire
+	// it is a base58 string (getTransaction/getBlock meta inner
+	// instructions), so it uses Base58Data rather than a plain []byte,
+	// which encoding/json would (incorrectly) treat as base64.
+	Data Base58Data
 }
 
 // MessageAddressTableLookup is a v0-only reference to an Address
@@ -314,7 +317,14 @@ func (m *Message) marshalInto(e *encoding.Encoder) error {
 // resolving address-table lookups), so this is identical for legacy and
 // v0 messages.
 func (m *Message) Signers() []PublicKey {
-	return m.AccountKeys[:m.Header.NumRequiredSignatures]
+	// Clamp to len(AccountKeys): a message decoded from untrusted bytes
+	// can carry NumRequiredSignatures > len(AccountKeys), which would
+	// otherwise panic on the slice expression.
+	n := int(m.Header.NumRequiredSignatures)
+	if n > len(m.AccountKeys) {
+		n = len(m.AccountKeys)
+	}
+	return m.AccountKeys[:n]
 }
 
 // ResolvedAccountKeys flattens a v0 message's index space into a single

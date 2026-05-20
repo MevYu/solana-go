@@ -297,17 +297,25 @@ func DecodeShortvec(b []byte) (uint16, int, error) {
 	b1 := b[1]
 	v := uint16(b0&0x7f) | uint16(b1&0x7f)<<7
 	if b1 < 0x80 {
+		// Reject non-canonical (overlong) encodings: a terminal high group
+		// of 0 means the value fit in fewer bytes. Solana's consensus
+		// shortvec decoder enforces minimal encoding, so a lax decoder
+		// would accept bytes a validator rejects.
+		if b1 == 0 {
+			return 0, 0, ErrInvalidShortvec
+		}
 		return v, 2, nil
 	}
 	if len(b) < 3 {
 		return 0, 0, ErrShortBuffer
 	}
 	b2 := b[2]
-	// The third byte is the most significant. Valid values are 0x00-0x03:
-	// any higher value either sets the continuation bit (attempting a
+	// The third byte is the most significant. Valid values are 0x01-0x03:
+	// 0x00 is a non-canonical (overlong) encoding of a 2-byte value; any
+	// value above 0x03 either sets the continuation bit (attempting a
 	// 4-byte encoding) or would overflow the destination uint16 when
 	// shifted left by 14.
-	if b2 > 0x03 {
+	if b2 == 0 || b2 > 0x03 {
 		return 0, 0, ErrInvalidShortvec
 	}
 	v |= uint16(b2) << 14

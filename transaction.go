@@ -266,6 +266,19 @@ func NewTransactionFromInstructions(instructions []Instruction, recentBlockhash 
 	return NewTransaction(*msg), nil
 }
 
+// NewTransactionFromInstructionsV0 builds a versioned (v0) Message from
+// instructions, recent blockhash, payer and the address lookup tables to
+// resolve accounts against, then wraps it into an unsigned Transaction.
+// It is the v0 counterpart of NewTransactionFromInstructions. Pass nil
+// tables to produce a v0 message with no lookups.
+func NewTransactionFromInstructionsV0(instructions []Instruction, recentBlockhash Hash, payer PublicKey, tables []LoadedAddressLookupTable) (*Transaction, error) {
+	msg, err := NewMessageV0(payer, instructions, recentBlockhash, tables)
+	if err != nil {
+		return nil, err
+	}
+	return NewTransaction(*msg), nil
+}
+
 // MarshalBinary is an alias for Marshal, matching the go-solana
 // naming convention.
 func (tx *Transaction) MarshalBinary() ([]byte, error) {

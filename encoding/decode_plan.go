@@ -287,6 +287,15 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		if err != nil {
 			return err
 		}
+		// Each element needs at least 1 byte, so a length exceeding the
+		// remaining buffer is corrupt. Bound the allocation to the input
+		// size; without this a malicious length (e.g. 0xFFFFFFFF) makes
+		// MakeSlice allocate billions of elements before the per-element
+		// reads below fail. opByteSlice/opString are safe (ReadBytes
+		// checks Remaining before allocating).
+		if n > uint64(d.Remaining()) {
+			return fmt.Errorf("slice length %d exceeds %d remaining bytes", n, d.Remaining())
+		}
 		rv := reflect.NewAt(o.sliceType, ptr).Elem()
 		out := reflect.MakeSlice(o.sliceType, int(n), int(n))
 		rv.Set(out)

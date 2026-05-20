@@ -345,6 +345,14 @@ func NewMessageV0(payer PublicKey, instructions []Instruction, recentBlockhash H
 		}
 	}
 
+	// Instruction account indices are u8, so the total account count
+	// (static + all ALT-resolved) must fit in 0..255. Without this check
+	// compileInstructions' uint8(idx) silently truncates indices >=256,
+	// producing a message that references the wrong accounts.
+	if next > 256 {
+		return nil, fmt.Errorf("solana: NewMessageV0: %d total accounts (static + lookup) exceeds maximum of 256", next)
+	}
+
 	var lookups []MessageAddressTableLookup
 	for ti, t := range tables {
 		if !emit[ti] {

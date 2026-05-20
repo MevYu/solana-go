@@ -87,7 +87,7 @@ func TestGetTransaction_Fixture_FullDecode(t *testing.T) {
 				{
 					"index": 0,
 					"instructions": [
-						{"programIdIndex": 1, "accounts": [0, 2], "data": "AQID"}
+						{"programIdIndex": 1, "accounts": [0, 2], "data": "Ldp"}
 					]
 				}
 			],
@@ -213,6 +213,11 @@ func TestGetTransaction_Fixture_FullDecode(t *testing.T) {
 	inner := m.InnerInstructions[0].Instructions[0]
 	if inner.ProgramIDIndex != 1 || len(inner.Accounts) != 2 || inner.Accounts[1] != 2 {
 		t.Errorf("inner CompiledInstruction = %+v", inner)
+	}
+	// data is base58 on the wire ("Ldp" == bytes 1,2,3); guards against the
+	// regression where []byte was decoded as base64.
+	if len(inner.Data) != 3 || inner.Data[0] != 1 || inner.Data[1] != 2 || inner.Data[2] != 3 {
+		t.Errorf("inner.Data = %v, want [1 2 3]", []byte(inner.Data))
 	}
 
 	// --- TokenBalances ---
