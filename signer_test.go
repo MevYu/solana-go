@@ -6,6 +6,8 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"testing"
+
+	"github.com/mr-tron/base58"
 )
 
 func TestEd25519Keypair_GenerateAndSign(t *testing.T) {
@@ -88,6 +90,40 @@ func TestEd25519KeypairFromPrivateKey_RoundTrip(t *testing.T) {
 func TestEd25519KeypairFromPrivateKey_InvalidLength(t *testing.T) {
 	if _, err := Ed25519KeypairFromPrivateKey(make([]byte, 63)); !errors.Is(err, ErrInvalidLength) {
 		t.Fatalf("expected ErrInvalidLength, got %v", err)
+	}
+}
+
+func TestEd25519KeypairFromBase58Key(t *testing.T) {
+	kp, err := NewEd25519Keypair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	priv := kp.PrivateKey() // 64-byte expanded form, as solana-keygen exports
+
+	// 64-byte standard Solana key (the case that previously failed with
+	// "got 64, want 32").
+	got, err := Ed25519KeypairFromBase58Key(base58.Encode(priv))
+	if err != nil {
+		t.Fatalf("64-byte key: %v", err)
+	}
+	if !got.PublicKey().Equal(kp.PublicKey()) {
+		t.Fatal("64-byte key: public key mismatch")
+	}
+
+	// 32-byte bare seed.
+	got, err = Ed25519KeypairFromBase58Key(base58.Encode(priv[:ed25519.SeedSize]))
+	if err != nil {
+		t.Fatalf("32-byte seed: %v", err)
+	}
+	if !got.PublicKey().Equal(kp.PublicKey()) {
+		t.Fatal("32-byte seed: public key mismatch")
+	}
+
+	if _, err := Ed25519KeypairFromBase58Key(""); err == nil {
+		t.Fatal("empty key: expected error")
+	}
+	if _, err := Ed25519KeypairFromBase58Key(base58.Encode(make([]byte, 33))); !errors.Is(err, ErrInvalidLength) {
+		t.Fatalf("bad length: expected ErrInvalidLength, got %v", err)
 	}
 }
 

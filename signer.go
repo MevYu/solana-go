@@ -88,20 +88,25 @@ func Ed25519KeypairFromPrivateKey(priv []byte) (*Ed25519Keypair, error) {
 }
 
 // Ed25519KeypairFromBase58Key creates an Ed25519Keypair from a base58-encoded
-// Solana private key.
-// It accepts the standard 64-byte base58 private key string commonly used in
-// the Solana ecosystem.
+// Solana private key. It accepts both the standard 64-byte expanded private key
+// (the form solana-keygen and Phantom export) and a bare 32-byte seed.
 func Ed25519KeypairFromBase58Key(key string) (*Ed25519Keypair, error) {
-	// empty string
 	if len(key) == 0 {
 		return nil, fmt.Errorf("solana: ed25519 keypair: empty key")
 	}
 	b, err := base58.Decode(key)
-	// if err
 	if err != nil {
 		return nil, fmt.Errorf("solana: ed25519 keypair: %w", err)
 	}
-	return Ed25519KeypairFromSeed(b)
+	switch len(b) {
+	case ed25519.PrivateKeySize:
+		return Ed25519KeypairFromPrivateKey(b)
+	case ed25519.SeedSize:
+		return Ed25519KeypairFromSeed(b)
+	default:
+		return nil, fmt.Errorf("solana: ed25519 keypair: %w: got %d, want %d or %d",
+			ErrInvalidLength, len(b), ed25519.PrivateKeySize, ed25519.SeedSize)
+	}
 }
 
 // PublicKey implements Signer.
