@@ -186,6 +186,11 @@ func (c *Client) confirmSignature(
 	cfg sendConfig,
 ) error {
 	deadline := time.Now().Add(cfg.confirmTimeout)
+	// Bound each poll's RPC calls by the confirmation deadline so a single
+	// hung GetSignatureStatuses / GetBlockHeight cannot block past
+	// confirmTimeout. WithDeadline keeps any earlier deadline already on ctx.
+	callCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
 
 	searchHistory := true
 	statusCfg := SignatureStatusesCfg{SearchTransactionHistory: &searchHistory}
@@ -210,7 +215,7 @@ func (c *Client) confirmSignature(
 		}
 
 		var landed bool
-		statuses, err := c.GetSignatureStatuses(ctx, sigs, statusCfg)
+		statuses, err := c.GetSignatureStatuses(callCtx, sigs, statusCfg)
 		if err == nil && len(statuses.Statuses) > 0 && statuses.Statuses[0] != nil {
 			landed = true
 			s := statuses.Statuses[0]
@@ -227,7 +232,7 @@ func (c *Client) confirmSignature(
 		// Only probe block height when the tx is not yet visible — once
 		// the cluster has recorded the signature, expiry no longer matters.
 		if !landed && lastValidBlockHeight != nil {
-			if height, err := c.GetBlockHeight(ctx, heightCfg); err == nil {
+			if height, err := c.GetBlockHeight(callCtx, heightCfg); err == nil {
 				if height > *lastValidBlockHeight {
 					return errBlockhashExpired
 				}

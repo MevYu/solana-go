@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"unsafe"
 )
 
 // U128 is a 128-bit unsigned integer stored in Rust / Solana little-endian
@@ -253,7 +252,9 @@ func (d *Decoder) ReadU128() (U128, error) {
 	if err != nil {
 		return U128{}, err
 	}
-	return *(*U128)(unsafe.Pointer(&b[0])), nil
+	var u U128
+	copy(u[:], b)
+	return u, nil
 }
 
 // ReadU256 reads a 32-byte little-endian U256. See ReadU128 for ownership.
@@ -262,5 +263,7 @@ func (d *Decoder) ReadU256() (U256, error) {
 	if err != nil {
 		return U256{}, err
 	}
-	return *(*U256)(unsafe.Pointer(&b[0])), nil
+	var u U256
+	copy(u[:], b)
+	return u, nil
 }

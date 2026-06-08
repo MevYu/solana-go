@@ -91,11 +91,12 @@ func NewFreezeLookupTable(lookupTable, authority solana.PublicKey) solana.Instru
 // A lookup table can hold up to 256 addresses total. Calling Extend when
 // the table is already at the limit will fail.
 func NewExtendLookupTable(lookupTable, authority, payer solana.PublicKey, newAddresses []solana.PublicKey) solana.Instruction {
-	// Data: [u32 tag, u32 count, addr×count]. ALT encodes Vec<Pubkey>
-	// with a u32 length prefix (Borsh-style), not bincode's u64.
-	e := encoding.NewEncoder(4 + 4 + solana.PublicKeySize*len(newAddresses)).
+	// Data: [u32 tag, u64 count, addr×count]. The ALT program is
+	// serialized with bincode (new_with_bincode), so Vec<Pubkey> carries
+	// a u64 length prefix — not Borsh's u32.
+	e := encoding.NewEncoder(4 + 8 + solana.PublicKeySize*len(newAddresses)).
 		U32(tagExtendLookupTable).
-		U32(uint32(len(newAddresses)))
+		U64(uint64(len(newAddresses)))
 	for _, a := range newAddresses {
 		e.Raw(a[:])
 	}

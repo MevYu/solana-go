@@ -63,6 +63,10 @@ type pendingReply struct {
 	sub          *Subscription
 	dispatch     func([]byte)
 	userShutdown func()
+	// oneShot subscriptions (e.g. signatureSubscribe) get exactly one
+	// notification and are then auto-unsubscribed server-side; the read
+	// loop drops their local entry after delivering it.
+	oneShot bool
 
 	// Set by dispatchIncoming:
 	errMsg string
@@ -77,6 +81,7 @@ type subEntry struct {
 	subID    uint64
 	dispatch func([]byte)
 	shutdown func()
+	oneShot  bool
 }
 
 // DialWebSocket connects to the given Solana WebSocket RPC
@@ -175,17 +180,23 @@ func (c *Client) readLoop() {
 	}
 }
 
+// wsEnvelope is the union shape of every incoming frame: a reply (ID set)
+// or a notification (Method set, Params populated). Params is a value, not
+// a pointer, so decoding a notification doesn't heap-allocate it per frame;
+// replies leave it zero. Routing keys on ID presence, not Params.
+type wsEnvelope struct {
+	ID     *uint64         `json:"id"`
+	Method string          `json:"method"`
+	Result jsonrpc.RawJSON `json:"result"`
+	Error  *jsonrpc.Error  `json:"error"`
+	Params struct {
+		Subscription uint64          `json:"subscription"`
+		Result       jsonrpc.RawJSON `json:"result"`
+	} `json:"params"`
+}
+
 func (c *Client) dispatchIncoming(msg []byte) {
-	var envelope struct {
-		ID     *uint64         `json:"id"`
-		Method string          `json:"method"`
-		Result jsonrpc.RawJSON `json:"result"`
-		Error  *jsonrpc.Error  `json:"error"`
-		Params *struct {
-			Subscription uint64          `json:"subscription"`
-			Result       jsonrpc.RawJSON `json:"result"`
-		} `json:"params"`
-	}
+	var envelope wsEnvelope
 	if err := c.codec.Unmarshal(msg, &envelope); err != nil {
 		return
 	}
@@ -193,13 +204,27 @@ func (c *Client) dispatchIncoming(msg []byte) {
 		c.handleReply(*envelope.ID, envelope.Result, envelope.Error)
 		return
 	}
-	if envelope.Params != nil {
-		c.mu.RLock()
-		entry, ok := c.subscriptions[envelope.Params.Subscription]
-		c.mu.RUnlock()
-		if ok {
-			entry.dispatch([]byte(envelope.Params.Result))
+	if envelope.Method == "" {
+		return
+	}
+	subID := envelope.Params.Subscription
+	c.mu.RLock()
+	entry, ok := c.subscriptions[subID]
+	c.mu.RUnlock()
+	if !ok {
+		return
+	}
+	entry.dispatch([]byte(envelope.Params.Result))
+	if entry.oneShot {
+		// Server auto-unsubscribes after this single notification; drop our
+		// local entry too so the subscriptions map doesn't grow unbounded
+		// under high signature-confirm churn.
+		c.mu.Lock()
+		if c.subscriptions != nil {
+			delete(c.subscriptions, subID)
 		}
+		c.mu.Unlock()
+		entry.shutdown()
 	}
 }
 
@@ -259,6 +284,7 @@ func (c *Client) handleReply(id uint64, result jsonrpc.RawJSON, rpcErr *jsonrpc.
 		subID:    subID,
 		dispatch: pending.dispatch,
 		shutdown: shutdownFn,
+		oneShot:  pending.oneShot,
 	}
 	c.mu.Unlock()
 
@@ -283,6 +309,20 @@ func (c *Client) Subscribe(
 	dispatch func([]byte),
 	shutdown func(),
 ) (*Subscription, error) {
+	return c.subscribe(ctx, method, unsubMethod, params, dispatch, shutdown, false)
+}
+
+// subscribe is Subscribe with an explicit one-shot flag. A one-shot
+// subscription receives exactly one notification and is auto-unsubscribed
+// server-side; the read loop drops its local entry after delivery.
+func (c *Client) subscribe(
+	ctx context.Context,
+	method, unsubMethod string,
+	params []any,
+	dispatch func([]byte),
+	shutdown func(),
+	oneShot bool,
+) (*Subscription, error) {
 	c.mu.Lock()
 	if c.closedFlag {
 		c.mu.Unlock()
@@ -301,6 +341,7 @@ func (c *Client) Subscribe(
 		sub:          sub,
 		dispatch:     dispatch,
 		userShutdown: shutdown,
+		oneShot:      oneShot,
 		done:         make(chan struct{}),
 	}
 	c.pendingReqs[reqID] = pending

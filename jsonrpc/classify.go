@@ -83,16 +83,8 @@ func IsBlockhashExpired(err error) bool {
 	if errors.Is(err, ErrBlockhashExpired) {
 		return true
 	}
-	var rpcErr *ErrRPC
-	if errors.As(err, &rpcErr) {
-		if messageContainsAny(rpcErr.Msg,
-			"BlockhashNotFound",
-			"blockhash not found",
-			"Blockhash not found",
-		) {
-			return true
-		}
-	}
+	// ErrRPC.Error() embeds its Msg, so matching err.Error() also covers a
+	// wrapped *ErrRPC — no separate errors.As(&ErrRPC) pass needed.
 	return messageContainsAny(err.Error(),
 		"BlockhashNotFound",
 		"blockhash not found",

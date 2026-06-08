@@ -17,8 +17,8 @@
 //     run. The two formats only differ in slice / string length prefix
 //     width — structs without slice or string fields decode the same with
 //     either function.
-//   - Hand-written hot-path decoding: NewReader + r.U64() / r.Bytes32() /
-//     r.Shortvec(). Canonical path for performance-sensitive code and for
+//   - Hand-written hot-path decoding: NewReader + r.U64() / r.Bytes32().
+//     Canonical path for performance-sensitive code and for
 //     wire layouts that reflection can't express (TLV, COption<Pubkey>,
 //     OptionalNonZeroPubkey, custom enum tags).
 //   - Hand-written instruction-data builders: NewEncoder + chained

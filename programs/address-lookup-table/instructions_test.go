@@ -111,20 +111,21 @@ func TestNewExtendLookupTable_Encoding(t *testing.T) {
 
 	ix := NewExtendLookupTable(table, authority, payer, []solana.PublicKey{addr1, addr2})
 	data, _ := ix.Data()
-	expectedLen := 4 + 4 + 32*2
+	// bincode wire: [u32 tag, u64 count, addr×count]; addresses start at 12.
+	expectedLen := 4 + 8 + 32*2
 	if len(data) != expectedLen {
 		t.Fatalf("data len = %d, want %d", len(data), expectedLen)
 	}
 	if tag := binary.LittleEndian.Uint32(data[0:4]); tag != tagExtendLookupTable {
 		t.Errorf("tag = %d", tag)
 	}
-	if count := binary.LittleEndian.Uint32(data[4:8]); count != 2 {
+	if count := binary.LittleEndian.Uint64(data[4:12]); count != 2 {
 		t.Errorf("count = %d", count)
 	}
-	if !bytes.Equal(data[8:40], addr1[:]) {
+	if !bytes.Equal(data[12:44], addr1[:]) {
 		t.Error("addr1 mismatch")
 	}
-	if !bytes.Equal(data[40:72], addr2[:]) {
+	if !bytes.Equal(data[44:76], addr2[:]) {
 		t.Error("addr2 mismatch")
 	}
 	if len(ix.Accounts()) != 4 {

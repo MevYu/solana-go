@@ -235,9 +235,13 @@ func WithHTTPAuth(a HTTPAuth) ClientOption {
 	})
 }
 
-// SetHeader adds or replaces a header on every future request. It is
-// safe for concurrent use. Use this for runtime header updates (e.g.
-// rotating API keys) after the client has been created.
+// SetHeader adds or replaces a header on every future request. Use this
+// for runtime header updates (e.g. rotating API keys) after the client
+// has been created.
+//
+// SetHeader is NOT safe to call while requests are in flight: it mutates
+// the shared header map that the request path concurrently reads. Set
+// headers before issuing requests, or quiesce in-flight requests first.
 func (c *Client) SetHeader(key, value string) {
 	if c.headers == nil {
 		c.headers = make(http.Header)

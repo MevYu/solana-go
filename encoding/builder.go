@@ -76,7 +76,7 @@ func (e *Encoder) Raw(b []byte) *Encoder { e.WriteBytes(b); return e }
 // For Borsh strings (u32 length) compose e.U32(uint32(len(s))).Raw([]byte(s)).
 func (e *Encoder) StrU64(s string) *Encoder {
 	e.WriteUint64(uint64(len(s)))
-	e.WriteBytes([]byte(s))
+	e.buf = append(e.buf, s...) // append(string) avoids the []byte(s) copy
 	return e
 }
 

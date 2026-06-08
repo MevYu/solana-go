@@ -20,6 +20,40 @@ func TestBorshDecodeTo_SliceUsesU32Prefix(t *testing.T) {
 	}
 }
 
+func TestDecodeTo_ByteSlice_PlainAndNamed(t *testing.T) {
+	// Bincode u64 length prefix + payload, decoded into both a plain []byte
+	// field (reflect-free fast path) and a named-type field (reflect path).
+	payload := []byte{0xDE, 0xAD, 0xBE, 0xEF}
+	data := New().U64(uint64(len(payload))).Raw(payload).Bytes()
+
+	type Named []byte
+	type S struct {
+		Plain []byte
+		Named Named
+	}
+	// Two back-to-back fields: prefix+payload twice.
+	data2 := New().
+		U64(uint64(len(payload))).Raw(payload).
+		U64(uint64(len(payload))).Raw(payload).
+		Bytes()
+
+	var s S
+	if err := BinDecodeTo(data2, &s); err != nil {
+		t.Fatalf("BinDecodeTo: %v", err)
+	}
+	if !bytes.Equal(s.Plain, payload) {
+		t.Errorf("Plain = %x, want %x", s.Plain, payload)
+	}
+	if !bytes.Equal(s.Named, payload) {
+		t.Errorf("Named = %x, want %x", s.Named, payload)
+	}
+	// Decoded slice must not alias the input buffer.
+	if len(s.Plain) > 0 && &s.Plain[0] == &data2[8] {
+		t.Error("Plain aliases input buffer; must be a copy")
+	}
+	_ = data
+}
+
 func TestBorshDecodeTo_StringUsesU32Prefix(t *testing.T) {
 	data := New().U32(5).Raw([]byte("hello")).Bytes()
 

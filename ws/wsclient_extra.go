@@ -94,7 +94,7 @@ func (c *Client) SignatureSubscribe(ctx context.Context, sig solana.Signature, c
 		n.Slot = envelope.Context.Slot
 		sendOrDropOldest(ch, &n)
 	}
-	sub, err := c.Subscribe(ctx, "signatureSubscribe", "signatureUnsubscribe", params, dispatch, func() {})
+	sub, err := c.subscribe(ctx, "signatureSubscribe", "signatureUnsubscribe", params, dispatch, func() {}, true)
 	if err != nil {
 		return nil, err
 	}

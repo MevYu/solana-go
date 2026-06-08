@@ -236,7 +236,9 @@ func (m *Message) Marshal() ([]byte, error) {
 	if err := m.marshalInto(e); err != nil {
 		return nil, err
 	}
-	return append([]byte(nil), e.Bytes()...), nil
+	// e is a fresh local sized by SerializedSize and not retained, so its
+	// buffer is already a caller-owned slice — no extra copy needed.
+	return e.Bytes(), nil
 }
 
 // marshalInto writes the wire-format message body into e. The caller is

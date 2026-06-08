@@ -60,9 +60,6 @@ func (e *exponentialBackoff) ShouldRetry(attempt int, err error) (time.Duration,
 	if delay > e.Max || delay <= 0 {
 		delay = e.Max
 	}
-	if delay <= 0 {
-		return 0, true
-	}
 	return time.Duration(rand.Int64N(int64(delay))), true
 }
 

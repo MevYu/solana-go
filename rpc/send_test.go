@@ -167,3 +167,43 @@ func TestSendAndConfirmSignedTransaction_Nil(t *testing.T) {
 		t.Fatal("expected error for nil transaction")
 	}
 }
+
+// TestSendAndConfirmSignedTransaction_HungRPCBoundedByTimeout verifies that
+// a getSignatureStatuses call that never returns is cancelled at the
+// confirmTimeout deadline rather than blocking indefinitely. Before the
+// deadline was propagated to the inner RPC calls, confirmTimeout did not
+// bound a hung poll and this test would hang until the parent ctx fired.
+func TestSendAndConfirmSignedTransaction_HungRPCBoundedByTimeout(t *testing.T) {
+	sigStr := (solana.Signature{}).String()
+
+	handlers := map[string]any{
+		"sendTransaction": sigStr,
+		// Blocks well past the confirm timeout; the client must cancel it.
+		// (httptest server Close waits for this handler, so keep it short.)
+		"getSignatureStatuses": func() any {
+			time.Sleep(time.Second)
+			return nil
+		},
+	}
+	srv := testutil.NewMockRPCServer(t, multiMethodHandler(t, handlers))
+	c := rpc.NewClientWith(srv.URL)
+
+	// Parent ctx far longer than confirmTimeout: the timeout, not ctx, must
+	// be what stops the wait.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	tx := buildTestTx(t, solana.Hash{0x42})
+	_, err := c.SendAndConfirmSignedTransaction(ctx, tx,
+		rpc.WithPollInterval(10*time.Millisecond),
+		rpc.WithConfirmTimeout(300*time.Millisecond),
+	)
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected a confirmation timeout error")
+	}
+	if elapsed > 3*time.Second {
+		t.Fatalf("confirm took %v; the hung RPC was not bounded by confirmTimeout", elapsed)
+	}
+}

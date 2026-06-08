@@ -37,7 +37,15 @@ type op struct {
 	elemType  reflect.Type
 	sub       *decodePlan
 	ifaceType reflect.Type
+	// plainByteSlice is set on opByteSlice when sliceType is exactly []byte
+	// (not a named type like `type Bytes []byte`), enabling a reflect-free
+	// make+copy fast path — the most common variable-length account field.
+	plainByteSlice bool
 }
+
+// byteSliceType is reflect.TypeOf([]byte(nil)), used to recognise fields
+// whose type is exactly []byte for the opByteSlice fast path.
+var byteSliceType = reflect.TypeOf([]byte(nil))
 
 type decodePlan struct {
 	ops  []op
@@ -119,9 +127,10 @@ func emitValue(p *decodePlan, t reflect.Type, off uintptr) error {
 	case reflect.Slice:
 		if t.Elem().Kind() == reflect.Uint8 {
 			p.ops = append(p.ops, op{
-				kind:      opByteSlice,
-				offset:    off,
-				sliceType: t,
+				kind:           opByteSlice,
+				offset:         off,
+				sliceType:      t,
+				plainByteSlice: t == byteSliceType,
 			})
 			return nil
 		}
@@ -269,13 +278,27 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		if err != nil {
 			return err
 		}
+		// Guard before the int(n) cast: on 32-bit platforms a length above
+		// 2^31 would truncate to a small positive value and silently decode
+		// a short slice instead of erroring.
+		if n > uint64(d.Remaining()) {
+			return fmt.Errorf("byte slice length %d exceeds %d remaining bytes", n, d.Remaining())
+		}
 		b, err := d.ReadBytes(int(n))
 		if err != nil {
 			return err
 		}
 		// Allocate-and-copy (not alias d.buf) so the decoded struct can
-		// outlive the input buffer; reflect handles named slice types
-		// like `type Bytes []byte`.
+		// outlive the input buffer.
+		if o.plainByteSlice {
+			// Field is exactly []byte: write the slice header directly,
+			// skipping the four reflect calls the named-type path needs.
+			dst := make([]byte, n)
+			copy(dst, b)
+			*(*[]byte)(ptr) = dst
+			return nil
+		}
+		// Named slice types like `type Bytes []byte` go through reflect.
 		rv := reflect.NewAt(o.sliceType, ptr).Elem()
 		out := reflect.MakeSlice(o.sliceType, int(n), int(n))
 		if n > 0 {
@@ -312,6 +335,9 @@ func (d *Decoder) execDecodeOp(o *op, base unsafe.Pointer) error {
 		n, err := d.readLen()
 		if err != nil {
 			return err
+		}
+		if n > uint64(d.Remaining()) {
+			return fmt.Errorf("string length %d exceeds %d remaining bytes", n, d.Remaining())
 		}
 		b, err := d.ReadBytes(int(n))
 		if err != nil {

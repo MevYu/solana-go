@@ -118,6 +118,18 @@ func TestWsClient_SignatureSubscribe(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout")
 	}
+
+	// One-shot subscriptions auto-unsubscribe server-side after the single
+	// notification; the local entry must be dropped too (no map leak).
+	<-sub.Done()
+	c.mu.RLock()
+	_, leaked := c.subscriptions[sub.ID()]
+	n := len(c.subscriptions)
+	c.mu.RUnlock()
+	if leaked || n != 0 {
+		t.Fatalf("signature subscription leaked local entry: present=%v, map size=%d", leaked, n)
+	}
+
 	_ = sub.Unsubscribe(ctx)
 }
 

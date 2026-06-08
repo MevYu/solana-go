@@ -35,19 +35,6 @@ func (m *AccountMeta) SIGNER() *AccountMeta {
 	return m
 }
 
-// Less reports whether m should sort before other in account-meta
-// lists: signers before non-signers, then writable before
-// read-only.
-func (m *AccountMeta) Less(other *AccountMeta) bool {
-	if m.IsSigner != other.IsSigner {
-		return m.IsSigner
-	}
-	if m.IsWritable != other.IsWritable {
-		return m.IsWritable
-	}
-	return false
-}
-
 // ---------------------------------------------------------------
 // AccountMetaSlice
 // ---------------------------------------------------------------
