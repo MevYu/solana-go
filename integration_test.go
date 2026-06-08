@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/MevYu/solana-go"
-	"github.com/MevYu/solana-go/helpers"
+	rpc "github.com/MevYu/solana-go/jsonrpc"
 	"github.com/MevYu/solana-go/programs/system"
-	"github.com/MevYu/solana-go/rpc"
+	client "github.com/MevYu/solana-go/rpc"
 )
 
 // defaultEndpoint is the solana-test-validator default RPC URL.
@@ -41,7 +41,7 @@ func newIntegrationClient(t *testing.T) *client.Client {
 	if endpoint == "" {
 		endpoint = defaultEndpoint
 	}
-	c := client.New(endpoint, rpc.Config{})
+	c := client.NewClient(endpoint, rpc.Config{})
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	if _, err := c.GetSlot(ctx); err != nil {
@@ -188,7 +188,7 @@ func TestIntegration_AirdropAndTransfer(t *testing.T) {
 
 // TestIntegration_PriorityFeeQuery exercises the
 // GetRecentPrioritizationFees path end-to-end, summarising the
-// returned window via helpers.PriorityFeeStatsFromFees.
+// returned window via client.PriorityFeeStatsFromFees.
 func TestIntegration_PriorityFeeQuery(t *testing.T) {
 	c := newIntegrationClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -198,7 +198,7 @@ func TestIntegration_PriorityFeeQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stats := helpers.PriorityFeeStatsFromFees(fees)
+	stats := client.PriorityFeeStatsFromFees(fees)
 	// On test-validator the fees are typically zero, so we only
 	// assert the call round-trips and returns a non-nil struct.
 	if stats == nil {
