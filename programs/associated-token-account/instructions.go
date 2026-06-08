@@ -38,17 +38,6 @@ func FindAssociatedTokenAddress(wallet, mint, tokenProgram solana.PublicKey) (so
 	return solana.FindProgramAddress(seeds, ProgramID)
 }
 
-// genericIx is the small solana.Instruction implementation used by
-// every builder in this package.
-type genericIx struct {
-	accounts []*solana.AccountMeta
-	data     []byte
-}
-
-func (g *genericIx) ProgramID() solana.PublicKey     { return ProgramID }
-func (g *genericIx) Accounts() []*solana.AccountMeta { return g.accounts }
-func (g *genericIx) Data() ([]byte, error)           { return g.data, nil }
-
 // buildAccountMetas constructs the standard account meta list used
 // by both Create and CreateIdempotent. The ATA is derived
 // internally so callers do not have to.
@@ -79,10 +68,7 @@ func NewCreate(payer, wallet, mint, tokenProgram solana.PublicKey) (solana.Instr
 	if err != nil {
 		return nil, err
 	}
-	return &genericIx{
-		accounts: accs,
-		data:     []byte{}, // empty data selects the Create discriminator
-	}, nil
+	return solana.NewInstruction(ProgramID, accs, []byte{}), nil // empty data selects the Create discriminator
 }
 
 // NewCreateIdempotent builds the idempotent variant of Create. It
@@ -94,8 +80,5 @@ func NewCreateIdempotent(payer, wallet, mint, tokenProgram solana.PublicKey) (so
 	if err != nil {
 		return nil, err
 	}
-	return &genericIx{
-		accounts: accs,
-		data:     []byte{1}, // CreateIdempotent discriminator
-	}, nil
+	return solana.NewInstruction(ProgramID, accs, []byte{1}), nil // CreateIdempotent discriminator
 }

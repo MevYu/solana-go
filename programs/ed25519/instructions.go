@@ -14,25 +14,19 @@ import (
 // Unlike Secp256k1SignatureOffsets, every field — including the three
 // instruction-index fields — is u16.
 type Ed25519SignatureOffsets struct {
-	SignatureOffset            uint16 // byte offset to the 64-byte ed25519 signature
-	SignatureInstructionIndex  uint16 // which transaction instruction holds the signature; 0xFFFF = this instruction
-	PublicKeyOffset            uint16 // byte offset to the 32-byte ed25519 public key
-	PublicKeyInstructionIndex  uint16 // which transaction instruction holds the public key
-	MessageDataOffset          uint16 // byte offset to the signed message data
-	MessageDataSize            uint16 // length of the message data in bytes
-	MessageInstructionIndex    uint16 // which transaction instruction holds the message
+	SignatureOffset           uint16 // byte offset to the 64-byte ed25519 signature
+	SignatureInstructionIndex uint16 // which transaction instruction holds the signature; 0xFFFF = this instruction
+	PublicKeyOffset           uint16 // byte offset to the 32-byte ed25519 public key
+	PublicKeyInstructionIndex uint16 // which transaction instruction holds the public key
+	MessageDataOffset         uint16 // byte offset to the signed message data
+	MessageDataSize           uint16 // length of the message data in bytes
+	MessageInstructionIndex   uint16 // which transaction instruction holds the message
 }
-
-type ed25519Ix struct{ data []byte }
-
-func (s *ed25519Ix) ProgramID() solana.PublicKey     { return ProgramID }
-func (s *ed25519Ix) Accounts() []*solana.AccountMeta { return nil }
-func (s *ed25519Ix) Data() ([]byte, error)           { return s.data, nil }
 
 // NewRawInstruction wraps pre-encoded ed25519 precompile data as a
 // solana.Instruction.
 func NewRawInstruction(data []byte) solana.Instruction {
-	return &ed25519Ix{data: data}
+	return solana.NewInstruction(ProgramID, nil, data)
 }
 
 // NewInstruction is an alias for NewRawInstruction.
@@ -68,8 +62,8 @@ func NewVerifySignature(publicKey [32]byte, signature [64]byte, message []byte) 
 		selfIx       = uint16(0xFFFF)
 	)
 	data := encoding.NewEncoder(int(msgOffset) + len(message)).
-		U8(1).             // count
-		U8(0).             // padding
+		U8(1). // count
+		U8(0). // padding
 		U16(sigOffset).U16(selfIx).
 		U16(pubkeyOffset).U16(selfIx).
 		U16(msgOffset).U16(uint16(len(message))).U16(selfIx).
@@ -77,7 +71,7 @@ func NewVerifySignature(publicKey [32]byte, signature [64]byte, message []byte) 
 		Raw(signature[:]).
 		Raw(message).
 		Bytes()
-	return &ed25519Ix{data: data}, nil
+	return solana.NewInstruction(ProgramID, nil, data), nil
 }
 
 // NewSignatureVerifyInstruction builds an ed25519 precompile instruction
@@ -95,5 +89,5 @@ func NewSignatureVerifyInstruction(signatures []Ed25519SignatureOffsets) (solana
 			U16(sig.PublicKeyOffset).U16(sig.PublicKeyInstructionIndex).
 			U16(sig.MessageDataOffset).U16(sig.MessageDataSize).U16(sig.MessageInstructionIndex)
 	}
-	return &ed25519Ix{data: e.Bytes()}, nil
+	return solana.NewInstruction(ProgramID, nil, e.Bytes()), nil
 }

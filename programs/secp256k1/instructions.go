@@ -21,16 +21,10 @@ type Secp256k1SignatureOffsets struct {
 	MessageInstructionIndex    uint8  // which transaction instruction holds the message
 }
 
-type secp256k1Ix struct{ data []byte }
-
-func (s *secp256k1Ix) ProgramID() solana.PublicKey     { return ProgramID }
-func (s *secp256k1Ix) Accounts() []*solana.AccountMeta { return nil }
-func (s *secp256k1Ix) Data() ([]byte, error)           { return s.data, nil }
-
 // NewRawInstruction wraps pre-encoded secp256k1 precompile data as a
 // solana.Instruction.
 func NewRawInstruction(data []byte) solana.Instruction {
-	return &secp256k1Ix{data: data}
+	return solana.NewInstruction(ProgramID, nil, data)
 }
 
 // NewInstruction is an alias for NewRawInstruction.
@@ -76,7 +70,7 @@ func NewVerifyEthSignature(ethAddress [20]byte, signature [64]byte, recoveryID u
 		Raw(ethAddress[:]).
 		Raw(message).
 		Bytes()
-	return &secp256k1Ix{data: data}, nil
+	return solana.NewInstruction(ProgramID, nil, data), nil
 }
 
 // NewSignatureVerifyInstruction builds a secp256k1 precompile
@@ -94,5 +88,5 @@ func NewSignatureVerifyInstruction(signatures []Secp256k1SignatureOffsets) (sola
 			U16(sig.EthAddressOffset).U8(sig.EthAddressInstructionIndex).
 			U16(sig.MessageDataOffset).U16(sig.MessageDataSize).U8(sig.MessageInstructionIndex)
 	}
-	return &secp256k1Ix{data: e.Bytes()}, nil
+	return solana.NewInstruction(ProgramID, nil, e.Bytes()), nil
 }

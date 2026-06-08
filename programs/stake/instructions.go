@@ -51,25 +51,15 @@ type Lockup struct {
 	Custodian     solana.PublicKey
 }
 
-type genericIx struct {
-	programID solana.PublicKey
-	accounts  []*solana.AccountMeta
-	data      []byte
-}
-
-func (g *genericIx) ProgramID() solana.PublicKey     { return g.programID }
-func (g *genericIx) Accounts() []*solana.AccountMeta { return g.accounts }
-func (g *genericIx) Data() ([]byte, error)           { return g.data, nil }
-
 // Initialize builds a Stake.Initialize instruction.
 func Initialize(stakeAccount solana.PublicKey, authorized Authorized, lockup Lockup) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(stakeAccount, false, true),
 			solana.NewAccountMeta(sysvarRent, false, false),
 		},
-		data: encoding.NewEncoder(116).
+		encoding.NewEncoder(116).
 			U32(tagInitialize).
 			Raw(authorized.Staker[:]).
 			Raw(authorized.Withdrawer[:]).
@@ -77,14 +67,14 @@ func Initialize(stakeAccount solana.PublicKey, authorized Authorized, lockup Loc
 			U64(lockup.Epoch).
 			Raw(lockup.Custodian[:]).
 			Bytes(),
-	}
+	)
 }
 
 // Delegate builds a Stake.DelegateStake instruction.
 func Delegate(stakeAccount, voteAccount, staker solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(stakeAccount, false, true),
 			solana.NewAccountMeta(voteAccount, false, false),
 			solana.NewAccountMeta(sysvarClock, false, false),
@@ -92,21 +82,21 @@ func Delegate(stakeAccount, voteAccount, staker solana.PublicKey) solana.Instruc
 			solana.NewAccountMeta(stakeConfig, false, false),
 			solana.NewAccountMeta(staker, true, false),
 		},
-		data: encoding.NewEncoder(4).U32(tagDelegate).Bytes(),
-	}
+		encoding.NewEncoder(4).U32(tagDelegate).Bytes(),
+	)
 }
 
 // Deactivate builds a Stake.Deactivate instruction.
 func Deactivate(stakeAccount, staker solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(stakeAccount, false, true),
 			solana.NewAccountMeta(sysvarClock, false, false),
 			solana.NewAccountMeta(staker, true, false),
 		},
-		data: encoding.NewEncoder(4).U32(tagDeactivate).Bytes(),
-	}
+		encoding.NewEncoder(4).U32(tagDeactivate).Bytes(),
+	)
 }
 
 // Withdraw builds a Stake.Withdraw instruction.
@@ -121,39 +111,39 @@ func Withdraw(stakeAccount, destination, withdrawer solana.PublicKey, lamports u
 	if custodian != nil {
 		accounts = append(accounts, solana.NewAccountMeta(*custodian, true, false))
 	}
-	return &genericIx{
-		programID: ProgramID,
-		accounts:  accounts,
-		data:      encoding.NewEncoder(12).U32(tagWithdraw).U64(lamports).Bytes(),
-	}
+	return solana.NewInstruction(
+		ProgramID,
+		accounts,
+		encoding.NewEncoder(12).U32(tagWithdraw).U64(lamports).Bytes(),
+	)
 }
 
 // Split builds a Stake.Split instruction.
 func Split(stakeAccount, splitStake, staker solana.PublicKey, lamports uint64) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(stakeAccount, false, true),
 			solana.NewAccountMeta(splitStake, false, true),
 			solana.NewAccountMeta(staker, true, false),
 		},
-		data: encoding.NewEncoder(12).U32(tagSplit).U64(lamports).Bytes(),
-	}
+		encoding.NewEncoder(12).U32(tagSplit).U64(lamports).Bytes(),
+	)
 }
 
 // Merge builds a Stake.Merge instruction.
 func Merge(destination, source, staker solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(destination, false, true),
 			solana.NewAccountMeta(source, false, true),
 			solana.NewAccountMeta(sysvarClock, false, false),
 			solana.NewAccountMeta(sysvarStakeHistory, false, false),
 			solana.NewAccountMeta(staker, true, false),
 		},
-		data: encoding.NewEncoder(4).U32(tagMerge).Bytes(),
-	}
+		encoding.NewEncoder(4).U32(tagMerge).Bytes(),
+	)
 }
 
 // Authorize builds a Stake.Authorize instruction that reassigns the staker
@@ -174,7 +164,7 @@ func Authorize(stakeAccount, authority, newAuthority solana.PublicKey, authType 
 	if custodian != nil {
 		accounts = append(accounts, solana.NewAccountMeta(*custodian, true, false))
 	}
-	return &genericIx{programID: ProgramID, accounts: accounts, data: data}
+	return solana.NewInstruction(ProgramID, accounts, data)
 }
 
 // AuthorizeChecked builds a Stake.AuthorizeChecked instruction. Unlike
@@ -190,27 +180,27 @@ func AuthorizeChecked(stakeAccount, authority, newAuthority solana.PublicKey, au
 	if custodian != nil {
 		accounts = append(accounts, solana.NewAccountMeta(*custodian, true, false))
 	}
-	return &genericIx{
-		programID: ProgramID,
-		accounts:  accounts,
-		data:      encoding.NewEncoder(8).U32(tagAuthorizeChecked).U32(uint32(authType)).Bytes(),
-	}
+	return solana.NewInstruction(
+		ProgramID,
+		accounts,
+		encoding.NewEncoder(8).U32(tagAuthorizeChecked).U32(uint32(authType)).Bytes(),
+	)
 }
 
 // InitializeChecked builds a Stake.InitializeChecked instruction. Like
 // Initialize but the withdrawer authority must sign the transaction,
 // making it safe to use when staker ≠ withdrawer.
 func InitializeChecked(stakeAccount, staker, withdrawer solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(stakeAccount, false, true),
 			solana.NewAccountMeta(sysvarRent, false, false),
 			solana.NewAccountMeta(staker, false, false),
 			solana.NewAccountMeta(withdrawer, true, false),
 		},
-		data: encoding.NewEncoder(4).U32(tagInitializeChecked).Bytes(),
-	}
+		encoding.NewEncoder(4).U32(tagInitializeChecked).Bytes(),
+	)
 }
 
 // SetLockup builds a Stake.SetLockup instruction that modifies the lockup
@@ -228,12 +218,12 @@ func SetLockup(stakeAccount, authority solana.PublicKey, unixTimestamp *int64, e
 		e.U8(0)
 	}
 	data := e.Bytes()
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(stakeAccount, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: data,
-	}
+		data,
+	)
 }

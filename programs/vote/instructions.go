@@ -27,66 +27,60 @@ const (
 	VoteAuthorizeWithdrawer VoteAuthorize = 1 // Authorized withdrawer
 )
 
-type genericIx struct {
-	accounts []*solana.AccountMeta
-	data     []byte
-}
-
-func (g *genericIx) ProgramID() solana.PublicKey     { return ProgramID }
-func (g *genericIx) Accounts() []*solana.AccountMeta { return g.accounts }
-func (g *genericIx) Data() ([]byte, error)           { return g.data, nil }
-
 // NewInitializeAccount builds a Vote.InitializeAccount instruction that
 // creates and initialises a new vote account. nodePubkey must sign the
 // transaction; it is the validator identity that will cast votes.
 func NewInitializeAccount(vote, nodePubkey, authorizedVoter, authorizedWithdrawer solana.PublicKey, commission uint8) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(vote, false, true),
 			solana.NewAccountMeta(solana.SysvarRentPubkey, false, false),
 			solana.NewAccountMeta(solana.SysvarClockPubkey, false, false),
 			solana.NewAccountMeta(nodePubkey, true, false),
 		},
-		data: encoding.NewEncoder(101).
+		encoding.NewEncoder(101).
 			U32(tagInitializeAccount).
 			Raw(nodePubkey[:]).
 			Raw(authorizedVoter[:]).
 			Raw(authorizedWithdrawer[:]).
 			U8(commission).
 			Bytes(),
-	}
+	)
 }
 
 // NewAuthorize builds a Vote.Authorize instruction that changes the voter
 // or withdrawer authority on a vote account. The current authority
 // (matching authType) must sign the transaction.
 func NewAuthorize(vote, authority, newAuthority solana.PublicKey, authType VoteAuthorize) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(vote, false, true),
 			solana.NewAccountMeta(solana.SysvarClockPubkey, false, false),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(40).
+		encoding.NewEncoder(40).
 			U32(tagAuthorize).
 			Raw(newAuthority[:]).
 			U32(uint32(authType)).
 			Bytes(),
-	}
+	)
 }
 
 // NewWithdraw builds a Vote.Withdraw instruction that moves lamports from
 // the vote account to a recipient. The withdrawer authority must sign
 // the transaction.
 func NewWithdraw(vote, withdrawAuthority, recipient solana.PublicKey, lamports uint64) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(vote, false, true),
 			solana.NewAccountMeta(recipient, false, true),
 			solana.NewAccountMeta(withdrawAuthority, true, false),
 		},
-		data: encoding.NewEncoder(12).U32(tagWithdraw).U64(lamports).Bytes(),
-	}
+		encoding.NewEncoder(12).U32(tagWithdraw).U64(lamports).Bytes(),
+	)
 }
 
 // NewUpdateValidatorIdentity builds a Vote.UpdateValidatorIdentity
@@ -94,40 +88,43 @@ func NewWithdraw(vote, withdrawAuthority, recipient solana.PublicKey, lamports u
 // the vote account's withdrawer authority and the new identity account
 // must sign the transaction.
 func NewUpdateValidatorIdentity(vote, newIdentity, withdrawAuthority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(vote, false, true),
 			solana.NewAccountMeta(newIdentity, true, false),
 			solana.NewAccountMeta(withdrawAuthority, true, false),
 		},
-		data: encoding.NewEncoder(4).U32(tagUpdateValidatorIdentity).Bytes(),
-	}
+		encoding.NewEncoder(4).U32(tagUpdateValidatorIdentity).Bytes(),
+	)
 }
 
 // NewAuthorizeChecked builds a Vote.AuthorizeChecked instruction (tag 6),
 // the checked variant of Authorize that additionally requires the new
 // authority to sign the transaction.
 func NewAuthorizeChecked(vote, authority, newAuthority solana.PublicKey, authType VoteAuthorize) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(vote, false, true),
 			solana.NewAccountMeta(solana.SysvarClockPubkey, false, false),
 			solana.NewAccountMeta(authority, true, false),
 			solana.NewAccountMeta(newAuthority, true, false),
 		},
-		data: encoding.NewEncoder(8).U32(tagAuthorizeChecked).U32(uint32(authType)).Bytes(),
-	}
+		encoding.NewEncoder(8).U32(tagAuthorizeChecked).U32(uint32(authType)).Bytes(),
+	)
 }
 
 // NewUpdateCommission builds a Vote.UpdateCommission instruction that sets
 // the validator's commission rate (0–100). The withdrawer authority must
 // sign the transaction.
 func NewUpdateCommission(vote, withdrawAuthority solana.PublicKey, commission uint8) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(vote, false, true),
 			solana.NewAccountMeta(withdrawAuthority, true, false),
 		},
-		data: encoding.NewEncoder(5).U32(tagUpdateCommission).U8(commission).Bytes(),
-	}
+		encoding.NewEncoder(5).U32(tagUpdateCommission).U8(commission).Bytes(),
+	)
 }

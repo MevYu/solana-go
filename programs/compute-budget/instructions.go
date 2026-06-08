@@ -13,21 +13,13 @@ const (
 	tagSetComputeUnitPrice byte = 3
 )
 
-type genericIx struct {
-	data []byte
-}
-
-func (g *genericIx) ProgramID() solana.PublicKey     { return ProgramID }
-func (g *genericIx) Accounts() []*solana.AccountMeta { return nil }
-func (g *genericIx) Data() ([]byte, error)           { return g.data, nil }
-
 // NewSetComputeUnitLimit builds an instruction that sets the compute unit
 // limit for the containing transaction. Transactions that omit this
 // instruction get Solana's default limit (200,000 CUs as of late 2024).
 // Specifying a tighter limit reduces the priority fee you pay at a given
 // per-CU price and makes your transaction more competitive.
 func NewSetComputeUnitLimit(units uint32) solana.Instruction {
-	return &genericIx{data: encoding.NewEncoder(5).U8(tagSetComputeUnitLimit).U32(units).Bytes()}
+	return solana.NewInstruction(ProgramID, nil, encoding.NewEncoder(5).U8(tagSetComputeUnitLimit).U32(units).Bytes())
 }
 
 // NewSetComputeUnitPrice builds an instruction that sets the price the
@@ -35,14 +27,14 @@ func NewSetComputeUnitLimit(units uint32) solana.Instruction {
 // (1 lamport = 1,000,000 micro-lamports). This is the Solana equivalent
 // of an EVM priority fee. Pick a reasonable value by calling
 // Client.GetRecentPrioritizationFees and summarising with
-// helpers.PriorityFeeStatsFromFees.
+// rpc.PriorityFeeStatsFromFees.
 func NewSetComputeUnitPrice(microLamports uint64) solana.Instruction {
-	return &genericIx{data: encoding.NewEncoder(9).U8(tagSetComputeUnitPrice).U64(microLamports).Bytes()}
+	return solana.NewInstruction(ProgramID, nil, encoding.NewEncoder(9).U8(tagSetComputeUnitPrice).U64(microLamports).Bytes())
 }
 
 // NewRequestHeapFrame builds an instruction that requests a larger program
 // heap. The size must be a multiple of 1024 and is capped at 256 KiB by
 // the runtime. Most programs do not need this.
 func NewRequestHeapFrame(bytes uint32) solana.Instruction {
-	return &genericIx{data: encoding.NewEncoder(5).U8(tagRequestHeapFrame).U32(bytes).Bytes()}
+	return solana.NewInstruction(ProgramID, nil, encoding.NewEncoder(5).U8(tagRequestHeapFrame).U32(bytes).Bytes())
 }

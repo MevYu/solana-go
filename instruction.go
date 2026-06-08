@@ -42,3 +42,28 @@ type Instruction interface {
 	// describing why the instruction cannot be built.
 	Data() ([]byte, error)
 }
+
+// instructionData is the canonical Instruction implementation returned by
+// NewInstruction: a program id, positional account metas, and pre-encoded
+// data. It replaces the per-package wrapper types every program builder
+// used to define.
+type instructionData struct {
+	programID PublicKey
+	accounts  []*AccountMeta
+	data      []byte
+}
+
+func (i *instructionData) ProgramID() PublicKey     { return i.programID }
+func (i *instructionData) Accounts() []*AccountMeta { return i.accounts }
+func (i *instructionData) Data() ([]byte, error)    { return i.data, nil }
+
+// NewInstruction builds an Instruction from a program id, positional
+// account metas, and pre-encoded instruction data. Program packages use it
+// instead of each defining their own Instruction wrapper. accounts may be
+// nil for precompile-style instructions that consume no accounts.
+//
+// The accounts slice is retained, not copied; callers must not mutate it
+// after the call, matching the read-only contract of Instruction.Accounts.
+func NewInstruction(programID PublicKey, accounts []*AccountMeta, data []byte) Instruction {
+	return &instructionData{programID: programID, accounts: accounts, data: data}
+}

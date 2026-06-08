@@ -20,15 +20,6 @@ const (
 	tagCloseLookupTable      uint32 = 4
 )
 
-type genericIx struct {
-	accounts []*solana.AccountMeta
-	data     []byte
-}
-
-func (g *genericIx) ProgramID() solana.PublicKey     { return ProgramID }
-func (g *genericIx) Accounts() []*solana.AccountMeta { return g.accounts }
-func (g *genericIx) Data() ([]byte, error)           { return g.data, nil }
-
 // DeriveLookupTableAddress computes the program-derived address for a
 // lookup table owned by authority at recentSlot. The PDA is the table's
 // on-chain address; pass it back as the first account meta to every
@@ -56,32 +47,26 @@ func NewCreateLookupTable(authority, payer solana.PublicKey, recentSlot uint64) 
 	if err != nil {
 		return nil, solana.PublicKey{}, fmt.Errorf("alt: CreateLookupTable: derive address: %w", err)
 	}
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
-			solana.NewAccountMeta(table, false, true),
-			solana.NewAccountMeta(authority, true, false),
-			solana.NewAccountMeta(payer, true, true),
-			solana.NewAccountMeta(system.ProgramID, false, false),
-		},
-		data: encoding.NewEncoder(13).
-			U32(tagCreateLookupTable).
-			U64(recentSlot).
-			U8(bump).
-			Bytes(),
-	}, table, nil
+	return solana.NewInstruction(ProgramID, []*solana.AccountMeta{
+		solana.NewAccountMeta(table, false, true),
+		solana.NewAccountMeta(authority, true, false),
+		solana.NewAccountMeta(payer, true, true),
+		solana.NewAccountMeta(system.ProgramID, false, false),
+	}, encoding.NewEncoder(13).
+		U32(tagCreateLookupTable).
+		U64(recentSlot).
+		U8(bump).
+		Bytes()), table, nil
 }
 
 // NewFreezeLookupTable builds an instruction that freezes a lookup table,
 // preventing any further extends. Only the table's authority can freeze
 // it; freezing is permanent.
 func NewFreezeLookupTable(lookupTable, authority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
-			solana.NewAccountMeta(lookupTable, false, true),
-			solana.NewAccountMeta(authority, true, false),
-		},
-		data: encoding.NewEncoder(4).U32(tagFreezeLookupTable).Bytes(),
-	}
+	return solana.NewInstruction(ProgramID, []*solana.AccountMeta{
+		solana.NewAccountMeta(lookupTable, false, true),
+		solana.NewAccountMeta(authority, true, false),
+	}, encoding.NewEncoder(4).U32(tagFreezeLookupTable).Bytes())
 }
 
 // NewExtendLookupTable builds an instruction that appends new addresses
@@ -100,15 +85,12 @@ func NewExtendLookupTable(lookupTable, authority, payer solana.PublicKey, newAdd
 	for _, a := range newAddresses {
 		e.Raw(a[:])
 	}
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
-			solana.NewAccountMeta(lookupTable, false, true),
-			solana.NewAccountMeta(authority, true, false),
-			solana.NewAccountMeta(payer, true, true),
-			solana.NewAccountMeta(system.ProgramID, false, false),
-		},
-		data: e.Bytes(),
-	}
+	return solana.NewInstruction(ProgramID, []*solana.AccountMeta{
+		solana.NewAccountMeta(lookupTable, false, true),
+		solana.NewAccountMeta(authority, true, false),
+		solana.NewAccountMeta(payer, true, true),
+		solana.NewAccountMeta(system.ProgramID, false, false),
+	}, e.Bytes())
 }
 
 // NewDeactivateLookupTable builds an instruction that marks a lookup
@@ -117,13 +99,10 @@ func NewExtendLookupTable(lookupTable, authority, payer solana.PublicKey, newAdd
 // during which it cannot be referenced by new transactions but its rent
 // is still held.
 func NewDeactivateLookupTable(lookupTable, authority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
-			solana.NewAccountMeta(lookupTable, false, true),
-			solana.NewAccountMeta(authority, true, false),
-		},
-		data: encoding.NewEncoder(4).U32(tagDeactivateLookupTable).Bytes(),
-	}
+	return solana.NewInstruction(ProgramID, []*solana.AccountMeta{
+		solana.NewAccountMeta(lookupTable, false, true),
+		solana.NewAccountMeta(authority, true, false),
+	}, encoding.NewEncoder(4).U32(tagDeactivateLookupTable).Bytes())
 }
 
 // NewCloseLookupTable builds an instruction that closes a deactivated
@@ -131,12 +110,9 @@ func NewDeactivateLookupTable(lookupTable, authority solana.PublicKey) solana.In
 // must be past the deactivation cooling-off period or the runtime will
 // reject the call.
 func NewCloseLookupTable(lookupTable, authority, recipient solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
-			solana.NewAccountMeta(lookupTable, false, true),
-			solana.NewAccountMeta(authority, true, false),
-			solana.NewAccountMeta(recipient, false, true),
-		},
-		data: encoding.NewEncoder(4).U32(tagCloseLookupTable).Bytes(),
-	}
+	return solana.NewInstruction(ProgramID, []*solana.AccountMeta{
+		solana.NewAccountMeta(lookupTable, false, true),
+		solana.NewAccountMeta(authority, true, false),
+		solana.NewAccountMeta(recipient, false, true),
+	}, encoding.NewEncoder(4).U32(tagCloseLookupTable).Bytes())
 }

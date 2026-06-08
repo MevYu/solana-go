@@ -38,17 +38,6 @@ const (
 	AuthorityCloseAccount  AuthorityType = 3 // Close authority on a token account
 )
 
-// genericIx is the small solana.Instruction implementation used by every
-// SPL Token builder.
-type genericIx struct {
-	accounts []*solana.AccountMeta
-	data     []byte
-}
-
-func (g *genericIx) ProgramID() solana.PublicKey     { return ProgramID }
-func (g *genericIx) Accounts() []*solana.AccountMeta { return g.accounts }
-func (g *genericIx) Data() ([]byte, error)           { return g.data, nil }
-
 // initMintData encodes the shared payload of InitializeMint and
 // InitializeMint2: [tag u8] [decimals u8] [mintAuthority 32B] [option u8]
 // [freezeAuthority 32B if option==1].
@@ -72,28 +61,30 @@ func initMintData(tag byte, decimals uint8, mintAuthority solana.PublicKey, free
 //
 // freezeAuthority may be nil to indicate no freeze authority.
 func NewInitializeMint(mint solana.PublicKey, decimals uint8, mintAuthority solana.PublicKey, freezeAuthority *solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(mint, false, true),
 			solana.NewAccountMeta(solana.SysvarRentPubkey, false, false),
 		},
-		data: initMintData(tagInitializeMint, decimals, mintAuthority, freezeAuthority),
-	}
+		initMintData(tagInitializeMint, decimals, mintAuthority, freezeAuthority),
+	)
 }
 
 // NewInitializeAccount builds the legacy SPL Token InitializeAccount
 // instruction (tag 1). This form requires the rent sysvar; prefer
 // NewInitializeAccount3 for new code.
 func NewInitializeAccount(account, mint, owner solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 			solana.NewAccountMeta(mint, false, false),
 			solana.NewAccountMeta(owner, false, false),
 			solana.NewAccountMeta(solana.SysvarRentPubkey, false, false),
 		},
-		data: []byte{tagInitializeAccount},
-	}
+		[]byte{tagInitializeAccount},
+	)
 }
 
 // NewInitializeMultisig builds an SPL Token InitializeMultisig instruction
@@ -108,10 +99,7 @@ func NewInitializeMultisig(multisig solana.PublicKey, m uint8, signers []solana.
 	for _, s := range signers {
 		accounts = append(accounts, solana.NewAccountMeta(s, false, false))
 	}
-	return &genericIx{
-		accounts: accounts,
-		data:     []byte{tagInitializeMultisig, m},
-	}
+	return solana.NewInstruction(ProgramID, accounts, []byte{tagInitializeMultisig, m})
 }
 
 // NewTransfer builds an SPL Token Transfer instruction.
@@ -124,14 +112,15 @@ func NewInitializeMultisig(multisig solana.PublicKey, m uint8, signers []solana.
 // validates the token's decimals on chain, protecting against mint
 // confusion attacks.
 func NewTransfer(source, destination, authority solana.PublicKey, amount uint64) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(source, false, true),
 			solana.NewAccountMeta(destination, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(9).U8(tagTransfer).U64(amount).Bytes(),
-	}
+		encoding.NewEncoder(9).U8(tagTransfer).U64(amount).Bytes(),
+	)
 }
 
 // NewTransferChecked builds an SPL Token TransferChecked instruction.
@@ -139,43 +128,46 @@ func NewTransfer(source, destination, authority solana.PublicKey, amount uint64)
 // to be passed in, and the runtime verifies both match the token account
 // on chain.
 func NewTransferChecked(source, mint, destination, authority solana.PublicKey, amount uint64, decimals uint8) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(source, false, true),
 			solana.NewAccountMeta(mint, false, false),
 			solana.NewAccountMeta(destination, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(10).U8(tagTransferChecked).U64(amount).U8(decimals).Bytes(),
-	}
+		encoding.NewEncoder(10).U8(tagTransferChecked).U64(amount).U8(decimals).Bytes(),
+	)
 }
 
 // NewMintTo builds an SPL Token MintTo instruction that creates amount
 // new tokens in destination. authority must be the mint's mint authority
 // and must sign the transaction.
 func NewMintTo(mint, destination, authority solana.PublicKey, amount uint64) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(mint, false, true),
 			solana.NewAccountMeta(destination, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(9).U8(tagMintTo).U64(amount).Bytes(),
-	}
+		encoding.NewEncoder(9).U8(tagMintTo).U64(amount).Bytes(),
+	)
 }
 
 // NewBurn builds an SPL Token Burn instruction that destroys amount
 // tokens from account. authority must be the account's owner and must
 // sign the transaction.
 func NewBurn(account, mint, authority solana.PublicKey, amount uint64) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 			solana.NewAccountMeta(mint, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(9).U8(tagBurn).U64(amount).Bytes(),
-	}
+		encoding.NewEncoder(9).U8(tagBurn).U64(amount).Bytes(),
+	)
 }
 
 // NewCloseAccount builds an SPL Token CloseAccount instruction that
@@ -183,14 +175,15 @@ func NewBurn(account, mint, authority solana.PublicKey, amount uint64) solana.In
 // account must have a zero balance and authority must sign the
 // transaction.
 func NewCloseAccount(account, destination, authority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 			solana.NewAccountMeta(destination, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: []byte{tagCloseAccount},
-	}
+		[]byte{tagCloseAccount},
+	)
 }
 
 // NewInitializeMint2 builds an SPL Token InitializeMint2 instruction.
@@ -205,12 +198,13 @@ func NewInitializeMint2(mint solana.PublicKey, decimals uint8, mintAuthority sol
 	if !freezeAuthority.IsZero() {
 		fa = &freezeAuthority
 	}
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(mint, false, true),
 		},
-		data: initMintData(tagInitializeMint2, decimals, mintAuthority, fa),
-	}
+		initMintData(tagInitializeMint2, decimals, mintAuthority, fa),
+	)
 }
 
 // NewInitializeAccount3 builds an SPL Token InitializeAccount3
@@ -219,26 +213,28 @@ func NewInitializeMint2(mint solana.PublicKey, decimals uint8, mintAuthority sol
 // the rent sysvar as an account input, and is the recommended form for
 // all new code.
 func NewInitializeAccount3(account, mint, owner solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 			solana.NewAccountMeta(mint, false, false),
 		},
-		data: encoding.NewEncoder(33).U8(tagInitializeAccount3).Raw(owner[:]).Bytes(),
-	}
+		encoding.NewEncoder(33).U8(tagInitializeAccount3).Raw(owner[:]).Bytes(),
+	)
 }
 
 // NewApprove builds an SPL Token Approve instruction that authorizes
 // delegate to transfer up to amount tokens from source on behalf of owner.
 func NewApprove(source, delegate, owner solana.PublicKey, amount uint64) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(source, false, true),
 			solana.NewAccountMeta(delegate, false, false),
 			solana.NewAccountMeta(owner, true, false),
 		},
-		data: encoding.NewEncoder(9).U8(tagApprove).U64(amount).Bytes(),
-	}
+		encoding.NewEncoder(9).U8(tagApprove).U64(amount).Bytes(),
+	)
 }
 
 // NewApproveChecked builds an SPL Token ApproveChecked instruction (tag
@@ -247,27 +243,29 @@ func NewApprove(source, delegate, owner solana.PublicKey, amount uint64) solana.
 // the runtime verifies both match the on-chain token account, guarding
 // against mint-confusion attacks.
 func NewApproveChecked(source, mint, delegate, owner solana.PublicKey, amount uint64, decimals uint8) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(source, false, true),
 			solana.NewAccountMeta(mint, false, false),
 			solana.NewAccountMeta(delegate, false, false),
 			solana.NewAccountMeta(owner, true, false),
 		},
-		data: encoding.NewEncoder(10).U8(tagApproveChecked).U64(amount).U8(decimals).Bytes(),
-	}
+		encoding.NewEncoder(10).U8(tagApproveChecked).U64(amount).U8(decimals).Bytes(),
+	)
 }
 
 // NewRevoke builds an SPL Token Revoke instruction that removes any
 // previously approved delegate from source. owner must sign.
 func NewRevoke(source, owner solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(source, false, true),
 			solana.NewAccountMeta(owner, true, false),
 		},
-		data: []byte{tagRevoke},
-	}
+		[]byte{tagRevoke},
+	)
 }
 
 // NewSetAuthority builds an SPL Token SetAuthority instruction that
@@ -285,65 +283,70 @@ func NewSetAuthority(account solana.PublicKey, currentAuthority solana.PublicKey
 	} else {
 		e.U8(0)
 	}
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 			solana.NewAccountMeta(currentAuthority, true, false),
 		},
-		data: e.Bytes(),
-	}
+		e.Bytes(),
+	)
 }
 
 // NewFreezeAccount builds an SPL Token FreezeAccount instruction. The
 // mint's freeze authority must sign the transaction.
 func NewFreezeAccount(account, mint, freezeAuthority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 			solana.NewAccountMeta(mint, false, false),
 			solana.NewAccountMeta(freezeAuthority, true, false),
 		},
-		data: []byte{tagFreezeAccount},
-	}
+		[]byte{tagFreezeAccount},
+	)
 }
 
 // NewThawAccount builds an SPL Token ThawAccount instruction that
 // unfreezes a frozen token account. The mint's freeze authority must sign.
 func NewThawAccount(account, mint, freezeAuthority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 			solana.NewAccountMeta(mint, false, false),
 			solana.NewAccountMeta(freezeAuthority, true, false),
 		},
-		data: []byte{tagThawAccount},
-	}
+		[]byte{tagThawAccount},
+	)
 }
 
 // NewMintToChecked builds an SPL Token MintToChecked instruction. Like
 // MintTo but validates decimals matches the mint on chain.
 func NewMintToChecked(mint, destination, authority solana.PublicKey, amount uint64, decimals uint8) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(mint, false, true),
 			solana.NewAccountMeta(destination, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(10).U8(tagMintToChecked).U64(amount).U8(decimals).Bytes(),
-	}
+		encoding.NewEncoder(10).U8(tagMintToChecked).U64(amount).U8(decimals).Bytes(),
+	)
 }
 
 // NewBurnChecked builds an SPL Token BurnChecked instruction. Like Burn
 // but validates decimals matches the mint on chain.
 func NewBurnChecked(account, mint, authority solana.PublicKey, amount uint64, decimals uint8) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 			solana.NewAccountMeta(mint, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(10).U8(tagBurnChecked).U64(amount).U8(decimals).Bytes(),
-	}
+		encoding.NewEncoder(10).U8(tagBurnChecked).U64(amount).U8(decimals).Bytes(),
+	)
 }
 
 // NewSyncNative builds an SPL Token SyncNative instruction that syncs the
@@ -351,10 +354,11 @@ func NewBurnChecked(account, mint, authority solana.PublicKey, amount uint64, de
 // balance. Call this after transferring SOL directly to a wrapped-SOL
 // account.
 func NewSyncNative(account solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, false, true),
 		},
-		data: []byte{tagSyncNative},
-	}
+		[]byte{tagSyncNative},
+	)
 }

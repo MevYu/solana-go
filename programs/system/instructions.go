@@ -21,32 +21,19 @@ const (
 	tagTransferWithSeed       uint32 = 11
 )
 
-// genericIx is a small solana.Instruction implementation used by
-// every builder in this package. It carries a program id, account
-// meta list, and pre-encoded instruction data.
-type genericIx struct {
-	programID solana.PublicKey
-	accounts  []*solana.AccountMeta
-	data      []byte
-}
-
-func (g *genericIx) ProgramID() solana.PublicKey     { return g.programID }
-func (g *genericIx) Accounts() []*solana.AccountMeta { return g.accounts }
-func (g *genericIx) Data() ([]byte, error)           { return g.data, nil }
-
 // NewTransfer builds a System.Transfer instruction that moves lamports
 // from one account to another. The from account must sign the
 // transaction. Both accounts are marked writable because their lamport
 // balances change.
 func NewTransfer(from, to solana.PublicKey, lamports uint64) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(from, true, true),
 			solana.NewAccountMeta(to, false, true),
 		},
-		data: encoding.NewEncoder(12).U32(tagTransfer).U64(lamports).Bytes(),
-	}
+		encoding.NewEncoder(12).U32(tagTransfer).U64(lamports).Bytes(),
+	)
 }
 
 // NewCreateAccount builds a System.CreateAccount instruction that funds
@@ -54,60 +41,60 @@ func NewTransfer(from, to solana.PublicKey, lamports uint64) solana.Instruction 
 // data, and assigns its owner program. Both from and newAccount must
 // sign the transaction.
 func NewCreateAccount(from, newAccount solana.PublicKey, lamports, space uint64, owner solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(from, true, true),
 			solana.NewAccountMeta(newAccount, true, true),
 		},
-		data: encoding.NewEncoder(52).
+		encoding.NewEncoder(52).
 			U32(tagCreateAccount).
 			U64(lamports).
 			U64(space).
 			Raw(owner[:]).
 			Bytes(),
-	}
+	)
 }
 
 // NewAssign builds a System.Assign instruction that changes the owner
 // program of an existing account. The account must currently be owned
 // by the System program and must sign the transaction.
 func NewAssign(account, owner solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, true, true),
 		},
-		data: encoding.NewEncoder(36).U32(tagAssign).Raw(owner[:]).Bytes(),
-	}
+		encoding.NewEncoder(36).U32(tagAssign).Raw(owner[:]).Bytes(),
+	)
 }
 
 // NewAllocate builds a System.Allocate instruction that allocates space
 // bytes for an account's data. The account must sign the transaction
 // and must currently be a System-owned account with zero-length data.
 func NewAllocate(account solana.PublicKey, space uint64) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(account, true, true),
 		},
-		data: encoding.NewEncoder(12).U32(tagAllocate).U64(space).Bytes(),
-	}
+		encoding.NewEncoder(12).U32(tagAllocate).U64(space).Bytes(),
+	)
 }
 
 // NewAdvanceNonceAccount builds a System.AdvanceNonceAccount instruction
 // that consumes the nonce and advances it to a new value. The nonce
 // authority must sign the transaction.
 func NewAdvanceNonceAccount(nonce, authority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(nonce, false, true),
 			solana.NewAccountMeta(solana.SysvarRecentBlockhashesPubkey, false, false),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(4).U32(tagAdvanceNonceAccount).Bytes(),
-	}
+		encoding.NewEncoder(4).U32(tagAdvanceNonceAccount).Bytes(),
+	)
 }
 
 // NewWithdrawNonceAccount builds a System.WithdrawNonceAccount instruction
@@ -116,17 +103,17 @@ func NewAdvanceNonceAccount(nonce, authority solana.PublicKey) solana.Instructio
 // withdraw all lamports to close it. The authority must sign the
 // transaction.
 func NewWithdrawNonceAccount(nonce, authority, to solana.PublicKey, lamports uint64) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(nonce, false, true),
 			solana.NewAccountMeta(to, false, true),
 			solana.NewAccountMeta(solana.SysvarRecentBlockhashesPubkey, false, false),
 			solana.NewAccountMeta(solana.SysvarRentPubkey, false, false),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(12).U32(tagWithdrawNonceAccount).U64(lamports).Bytes(),
-	}
+		encoding.NewEncoder(12).U32(tagWithdrawNonceAccount).U64(lamports).Bytes(),
+	)
 }
 
 // NewInitializeNonceAccount builds a System.InitializeNonceAccount
@@ -134,29 +121,29 @@ func NewWithdrawNonceAccount(nonce, authority, to solana.PublicKey, lamports uin
 // authority. The nonce account must already be funded and allocated by
 // System.CreateAccount before calling this instruction.
 func NewInitializeNonceAccount(nonce, authority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(nonce, false, true),
 			solana.NewAccountMeta(solana.SysvarRecentBlockhashesPubkey, false, false),
 			solana.NewAccountMeta(solana.SysvarRentPubkey, false, false),
 		},
-		data: encoding.NewEncoder(36).U32(tagInitializeNonceAccount).Raw(authority[:]).Bytes(),
-	}
+		encoding.NewEncoder(36).U32(tagInitializeNonceAccount).Raw(authority[:]).Bytes(),
+	)
 }
 
 // NewAuthorizeNonceAccount builds a System.AuthorizeNonceAccount instruction
 // that changes the authority of a nonce account to newAuthority. The current
 // authority must sign the transaction.
 func NewAuthorizeNonceAccount(nonce, authority, newAuthority solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(nonce, false, true),
 			solana.NewAccountMeta(authority, true, false),
 		},
-		data: encoding.NewEncoder(36).U32(tagAuthorizeNonceAccount).Raw(newAuthority[:]).Bytes(),
-	}
+		encoding.NewEncoder(36).U32(tagAuthorizeNonceAccount).Raw(newAuthority[:]).Bytes(),
+	)
 }
 
 // NewCreateAccountWithSeed builds a System.CreateAccountWithSeed instruction
@@ -183,7 +170,7 @@ func NewCreateAccountWithSeed(from, newAccount, base solana.PublicKey, seed stri
 	if base != from {
 		accounts = append(accounts, solana.NewAccountMeta(base, true, false))
 	}
-	return &genericIx{programID: ProgramID, accounts: accounts, data: data}
+	return solana.NewInstruction(ProgramID, accounts, data)
 }
 
 // NewTransferWithSeed builds a System.TransferWithSeed instruction that
@@ -192,18 +179,18 @@ func NewCreateAccountWithSeed(from, newAccount, base solana.PublicKey, seed stri
 //
 // from must equal CreateWithSeed(base, seed, programID).
 func NewTransferWithSeed(from, base, to solana.PublicKey, lamports uint64, seed string, programID solana.PublicKey) solana.Instruction {
-	return &genericIx{
-		programID: ProgramID,
-		accounts: []*solana.AccountMeta{
+	return solana.NewInstruction(
+		ProgramID,
+		[]*solana.AccountMeta{
 			solana.NewAccountMeta(from, false, true),
 			solana.NewAccountMeta(base, true, false),
 			solana.NewAccountMeta(to, false, true),
 		},
-		data: encoding.NewEncoder(4 + 8 + 8 + len(seed) + solana.PublicKeySize).
+		encoding.NewEncoder(4+8+8+len(seed)+solana.PublicKeySize).
 			U32(tagTransferWithSeed).
 			U64(lamports).
 			StrU64(seed).
 			Raw(programID[:]).
 			Bytes(),
-	}
+	)
 }
