@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/MevYu/solana-go/encoding"
@@ -406,6 +407,28 @@ func TestDecodeUnsupportedType(t *testing.T) {
 	var got S
 	if err := d.DecodeTo(&got); err == nil {
 		t.Fatal("expected error for unsupported float32")
+	}
+}
+
+// A bare interface{} field can't be reflectively decoded — the wire format
+// carries no type tag, so the decoder can't know the concrete layout. The
+// error must name the offending field and tell the caller how to fix it
+// (decode into a concrete pointer, or skip with bin:"-"), not just print a
+// cryptic reflect.Kind. Regression guard for the common *interface{} footgun.
+func TestDecodeInterfaceFieldError(t *testing.T) {
+	type S struct {
+		OnWire uint32
+		Any    interface{}
+	}
+	err := encoding.NewDecoder([]byte{1, 2, 3, 4}).DecodeTo(&S{})
+	if err == nil {
+		t.Fatal("expected error for interface{} field")
+	}
+	msg := err.Error()
+	for _, want := range []string{"S.Any", "concrete", `bin:"-"`} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("error %q missing %q", msg, want)
+		}
 	}
 }
 

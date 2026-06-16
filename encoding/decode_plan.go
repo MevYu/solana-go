@@ -180,6 +180,13 @@ func emitValue(p *decodePlan, t reflect.Type, off uintptr) error {
 			}
 		}
 
+	case reflect.Interface:
+		// A bare interface carries no wire layout, so the reflective decoder
+		// can't know what to read. Decoding into *interface{} is a common
+		// footgun when porting from SDKs whose decoder dereferenced the
+		// boxed value; point the caller at the concrete-type fix directly.
+		return fmt.Errorf("encoding: cannot decode into %s: binary decoding needs a concrete type — decode into a concrete struct pointer (e.g. &MyLayout{}), or tag the field `bin:\"-\"` to skip it", t)
+
 	default:
 		return fmt.Errorf("encoding: cannot compile plan for kind %s (%s)", t.Kind(), t)
 	}
