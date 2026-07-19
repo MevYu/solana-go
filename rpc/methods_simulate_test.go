@@ -239,14 +239,14 @@ func TestSimulateResult_UnmarshalFullResponse(t *testing.T) {
 	if len(partiallyDecoded.Data) != 1 || partiallyDecoded.Data[0] != 1 {
 		t.Fatalf("partially decoded data = %v, want [1]", partiallyDecoded.Data)
 	}
-	if len(result.PreTokenBalances) != 1 || result.PreTokenBalances[0].UiTokenAmount.UiAmount != nil {
+	if len(result.PreTokenBalances) != 1 || result.PreTokenBalances[0].UiTokenAmount.UiAmount != 0 {
 		t.Fatalf("PreTokenBalances = %+v, want a null UI amount", result.PreTokenBalances)
 	}
 	if len(result.PostTokenBalances) != 1 || result.PostTokenBalances[0].UiTokenAmount.Amount != "10" {
 		t.Fatalf("PostTokenBalances = %+v", result.PostTokenBalances)
 	}
 	postUIAmount := result.PostTokenBalances[0].UiTokenAmount.UiAmount
-	if postUIAmount == nil || *postUIAmount != 10 {
+	if postUIAmount != 10 {
 		t.Fatalf("PostTokenBalances UI amount = %v, want 10", postUIAmount)
 	}
 	if result.LoadedAccountsDataSize == nil || *result.LoadedAccountsDataSize != 413 {
