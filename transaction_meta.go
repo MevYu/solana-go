@@ -121,7 +121,7 @@ type UiTokenAmount struct {
 	// the RPC cannot provide the deprecated floating-point representation.
 	// When present it may lose precision for very large amounts; use
 	// UiAmountString for display and exact decimal handling.
-	UiAmount *float64 `json:"uiAmount"`
+	UiAmount float64 `json:"uiAmount"`
 
 	// UiAmountString is Amount divided by 10**Decimals as a decimal
 	// string, preserving full precision.
