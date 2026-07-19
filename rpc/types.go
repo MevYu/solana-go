@@ -2,9 +2,8 @@ package rpc
 
 import (
 	"encoding/json"
-	"math/big"
 
-	"github.com/MevYu/solana-go"
+	solana "github.com/MevYu/solana-go"
 )
 
 // GetSignatureStatusesResult is the decoded response of GetSignatureStatuses.
@@ -19,46 +18,47 @@ type SimulationReturnData struct {
 	Data      solana.EncodedData `json:"data"`
 }
 
+// SimulationInnerInstruction groups the inner instructions invoked by one
+// top-level instruction during simulation. Unlike transaction metadata, the
+// simulateTransaction RPC returns inner instructions in JSON-parsed form.
+type SimulationInnerInstruction struct {
+	Index        uint8                   `json:"index"`
+	Instructions []SimulationInstruction `json:"instructions"`
+}
+
+// SimulationInstruction is the common wire shape of a parsed or partially
+// decoded instruction returned by simulateTransaction. Parsed contains the
+// program-specific JSON payload for parsed instructions. Accounts and Data
+// are populated for partially decoded instructions.
+type SimulationInstruction struct {
+	Program     string             `json:"program,omitempty"`
+	ProgramID   solana.PublicKey   `json:"programId"`
+	Parsed      json.RawMessage    `json:"parsed,omitempty"`
+	Accounts    []solana.PublicKey `json:"accounts,omitempty"`
+	Data        solana.Base58Data  `json:"data,omitempty"`
+	StackHeight *uint32            `json:"stackHeight,omitempty"`
+}
+
 // SimulateResult is the decoded response of SimulateTransaction. Slot
 // is filled from the JSON-RPC context envelope after decode; the
 // remaining fields decode directly from the value object via their
 // json: tags.
 type SimulateResult struct {
-	Slot     uint64                `json:"-"`
-	Accounts []*solana.AccountInfo `json:"accounts"`
-	// Error if transaction failed, null if transaction succeeded.
-	// https://github.com/solana-labs/solana/blob/master/sdk/src/transaction.rs#L24
-	Err json.RawMessage `json:"err"`
-	// Fee this transaction was charged
-	Fee uint64 `json:"fee"`
-
-	// Array of *big.Int account balances from before the transaction was processed
-	PreBalances []*big.Int `json:"preBalances"`
-
-	// Array of *big.Int account balances after the transaction was processed
-	PostBalances []*big.Int `json:"postBalances"`
-
-	// List of inner instructions or omitted if inner instruction recording
-	// was not yet enabled during this transaction
-	InnerInstructions []solana.InnerInstruction `json:"innerInstructions"`
-
-	// List of token balances from before the transaction was processed
-	// or omitted if token balance recording was not yet enabled during this transaction
-	PreTokenBalances []solana.TokenBalance `json:"preTokenBalances"`
-
-	// List of token balances from after the transaction was processed
-	// or omitted if token balance recording was not yet enabled during this transaction
-	PostTokenBalances []solana.TokenBalance `json:"postTokenBalances"`
-
-	LoadedAccountsDataSize *uint32                `json:"loadedAccountsDataSize"`
-	LoadedAddresses        solana.LoadedAddresses `json:"loadedAddresses"`
-	// Array of string log messages or omitted if log message
-	// recording was not yet enabled during this transaction
-	Logs []string `json:"logs"`
-
-	ReplacementBlockhash *LastBlock            `json:"replacementBlockhash"`
-	ReturnData           *SimulationReturnData `json:"returnData"`
-	UnitsConsumed        *uint64               `json:"unitsConsumed"`
+	Slot                   uint64                       `json:"-"`
+	Accounts               []*solana.AccountInfo        `json:"accounts"`
+	Err                    any                          `json:"err"`
+	Fee                    *uint64                      `json:"fee"`
+	PreBalances            []uint64                     `json:"preBalances"`
+	PostBalances           []uint64                     `json:"postBalances"`
+	InnerInstructions      []SimulationInnerInstruction `json:"innerInstructions"`
+	PreTokenBalances       []solana.TokenBalance        `json:"preTokenBalances"`
+	PostTokenBalances      []solana.TokenBalance        `json:"postTokenBalances"`
+	LoadedAccountsDataSize *uint32                      `json:"loadedAccountsDataSize"`
+	LoadedAddresses        *solana.LoadedAddresses      `json:"loadedAddresses"`
+	Logs                   []string                     `json:"logs"`
+	ReplacementBlockhash   *solana.LatestBlockhash      `json:"replacementBlockhash"`
+	ReturnData             *SimulationReturnData        `json:"returnData"`
+	UnitsConsumed          *uint64                      `json:"unitsConsumed"`
 }
 
 // BlockTransaction is a single entry in the transactions array of a
@@ -69,13 +69,6 @@ type BlockTransaction struct {
 	Transaction *solana.Transaction     `json:"transaction"`
 	Meta        *solana.TransactionMeta `json:"meta"`
 	Version     solana.MessageVersion   `json:"version"`
-}
-
-type LastBlock struct {
-	// a Hash as base-58 encoded string
-	Blockhash solana.Hash `json:"blockhash"`
-	//  last block height at which the blockhash will be valid
-	LastValidBlockHeight uint64 `json:"lastValidBlockHeight"`
 }
 
 // GetBlockResult is the decoded response of GetBlock.

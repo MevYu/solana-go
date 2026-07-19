@@ -117,9 +117,11 @@ type UiTokenAmount struct {
 	// Decimals is the mint's decimals setting.
 	Decimals uint8 `json:"decimals"`
 
-	// UiAmount is Amount divided by 10**Decimals as a float. May lose
-	// precision for very large amounts; use UiAmountString for display.
-	UiAmount float64 `json:"uiAmount"`
+	// UiAmount is Amount divided by 10**Decimals as a float. It is nil when
+	// the RPC cannot provide the deprecated floating-point representation.
+	// When present it may lose precision for very large amounts; use
+	// UiAmountString for display and exact decimal handling.
+	UiAmount *float64 `json:"uiAmount"`
 
 	// UiAmountString is Amount divided by 10**Decimals as a decimal
 	// string, preserving full precision.

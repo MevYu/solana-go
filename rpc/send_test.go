@@ -3,6 +3,7 @@ package rpc_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -157,6 +158,43 @@ func TestSendAndConfirmSignedTransaction_Happy(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("SendAndConfirmSignedTransaction: %v", err)
+	}
+}
+
+func TestSendAndConfirmSignedTransaction_ReturnsDecodedExecutionError(t *testing.T) {
+	sigStr := (solana.Signature{}).String()
+	handlers := map[string]any{
+		"sendTransaction": sigStr,
+		"getSignatureStatuses": map[string]any{
+			"context": map[string]any{"slot": uint64(110)},
+			"value": []any{
+				map[string]any{
+					"slot":          uint64(105),
+					"confirmations": uint64(1),
+					"err": map[string]any{
+						"InstructionError": []any{uint64(2), map[string]any{"Custom": uint64(6001)}},
+					},
+					"confirmationStatus": "processed",
+				},
+			},
+		},
+	}
+	srv := testutil.NewMockRPCServer(t, multiMethodHandler(t, handlers))
+	client := rpc.NewClientWith(srv.URL)
+
+	tx := buildTestTx(t, solana.Hash{0x42})
+	_, err := client.SendAndConfirmSignedTransaction(
+		context.Background(),
+		tx,
+		rpc.WithPollInterval(time.Millisecond),
+		rpc.WithConfirmTimeout(time.Second),
+	)
+	var instructionErr *rpc.InstructionError
+	if !errors.As(err, &instructionErr) {
+		t.Fatalf("expected *rpc.InstructionError, got %T (%v)", err, err)
+	}
+	if instructionErr.Index != 2 || instructionErr.Kind != "Custom" || instructionErr.CustomErrorCode != 6001 {
+		t.Fatalf("decoded error = %+v", instructionErr)
 	}
 }
 

@@ -22,7 +22,9 @@ CLAUDE.md
 # env file
 .env
 
+# Workspace-local toolchains
+.tools/
+
 # Editor/IDE
 # .idea/
 # .vscode/
-

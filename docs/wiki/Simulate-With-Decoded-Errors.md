@@ -9,13 +9,15 @@ pattern-match on. Pair the decoder with `Client.SimulateTransaction`
 
 ```go
 type TransactionError struct {
-    Kind string // e.g. "BlockhashNotFound", "AccountNotFound"
+    Kind    string // e.g. "BlockhashNotFound", "AccountNotFound"
+    Details any    // payload for data-bearing variants
 }
 
 type InstructionError struct {
     Index           int    // 0-based instruction position
     Kind            string // e.g. "Custom", "InvalidArgument"
     CustomErrorCode uint32 // set when Kind == "Custom"
+    Details         any    // payload for other data-bearing variants
 }
 ```
 
@@ -62,8 +64,7 @@ if err != nil {
     return fmt.Errorf("simulate transport: %w", err)
 }
 
-if sim.Err != nil {
-    decoded := rpc.DecodeTransactionError(sim.Err)
+if decoded := rpc.DecodeTransactionError(sim.Err); decoded != nil {
     var ie *rpc.InstructionError
     var te *rpc.TransactionError
     switch {
@@ -104,10 +105,10 @@ manually or generate them separately).
 
 ## Decoding from `getTransaction`
 
-`TransactionMeta.Err` is a `json.RawMessage`; `SimulateResult.Err` is
-the already-unmarshaled `any` form. `rpc.DecodeTransactionError` accepts
-both and treats nil / empty / `"null"` as success, so a single guard
-works:
+`TransactionMeta.Err` is a `json.RawMessage`; `SimulateResult.Err` is the
+already-unmarshaled `any` form and is nil on success.
+`rpc.DecodeTransactionError` accepts both representations and treats nil,
+empty raw JSON, and `"null"` as success, so a single guard works:
 
 ```go
 res, _ := c.GetTransaction(ctx, sig)

@@ -22,6 +22,13 @@ type SimulateTxCfg struct {
     ReplaceRecentBlockhash *bool
     MinContextSlot         *uint64
     Encoding               solana.Encoding
+    InnerInstructions      *bool
+    Accounts               *SimulateAccountsCfg
+}
+
+type SimulateAccountsCfg struct {
+    Encoding  solana.Encoding
+    Addresses []solana.PublicKey
 }
 ```
 
@@ -29,25 +36,32 @@ type SimulateTxCfg struct {
 
 ```go
 type SimulateResult struct {
-    Slot          uint64
-    Err           any                       // transaction-level error (nil on success)
-    Logs          []string                  // program log messages
-    UnitsConsumed *uint64                   // CUs consumed, if reported
-    Accounts      []*AccountInfo            // post-simulation account state
-    ReturnData    *SimulationReturnData     // last instruction's return data
+    Slot                   uint64
+    Accounts               []*solana.AccountInfo
+    Err                    any // nil on success
+    Fee                    *uint64
+    PreBalances            []uint64
+    PostBalances           []uint64
+    InnerInstructions      []SimulationInnerInstruction
+    PreTokenBalances       []solana.TokenBalance
+    PostTokenBalances      []solana.TokenBalance
+    LoadedAccountsDataSize *uint32
+    LoadedAddresses        *solana.LoadedAddresses
+    Logs                   []string
+    ReplacementBlockhash   *solana.LatestBlockhash
+    ReturnData             *SimulationReturnData
+    UnitsConsumed          *uint64
 }
 
 type SimulationReturnData struct {
     ProgramID PublicKey
-    Data      AccountData // [value, encoding]; call .Bytes() to decode
+    Data      EncodedData // decoded bytes plus the source encoding
 }
 ```
 
-The `Err` field is raw `any`. Feed it to
-`rpc.DecodeTransactionError` to get a typed
-`*TransactionError` / `*InstructionError`, or use the
-higher-level [SimulateTransactionDecoded](Simulate-With-Decoded-Errors)
-helper that does the decoding for you.
+Feed `Err` to `rpc.DecodeTransactionError` to get a typed
+`*TransactionError` / `*InstructionError`. A successful simulation leaves
+`Err` as `nil`, preserving the usual `Err != nil` guard for existing callers.
 
 ## Cfg fields
 
@@ -58,18 +72,23 @@ helper that does the decoding for you.
 | `ReplaceRecentBlockhash` | Replace the blockhash with a fresh one before simulating |
 | `MinContextSlot` | Require a minimum node slot |
 | `Encoding` | Wire encoding (defaults to base64) |
+| `InnerInstructions` | Include parsed CPI instructions in the result |
+| `Accounts` | Return post-simulation snapshots for selected addresses |
+
+`Accounts.Encoding` defaults to `base64`; the supported account snapshot
+encodings are `base64` and `base64+zstd`. Solana rejects `base58` for this
+specific simulation option.
 
 **`SigVerify` and `ReplaceRecentBlockhash` are mutually
-exclusive at the server** — Solana rejects a request carrying
-both. The Go SDK passes them through as-is; pick one.
+exclusive**. The SDK rejects a request that enables both before making
+an RPC call.
 
 ## Signing requirements
 
-- By default, the transaction must be signed.
-- With `SimulateTxCfg{ReplaceRecentBlockhash: &b}` (where `b == true`),
-  the server re-signs with a dummy key and the input
-  transaction's signatures are ignored. This is useful for
-  simulating a transaction whose blockhash has already expired.
+- Signatures are verified only when `SigVerify` is true. Unsigned
+  placeholder signature slots are otherwise accepted for simulation.
+- With `ReplaceRecentBlockhash` enabled, the RPC node substitutes a fresh
+  blockhash. This is useful when the transaction's blockhash has expired.
 
 ## Example: measure compute units
 
@@ -78,8 +97,8 @@ sim, err := c.SimulateTransaction(ctx, tx)
 if err != nil {
     return err
 }
-if sim.Err != nil {
-    return fmt.Errorf("simulate failed: %v", sim.Err)
+if txErr := rpc.DecodeTransactionError(sim.Err); txErr != nil {
+    return txErr
 }
 if sim.UnitsConsumed != nil {
     fmt.Printf("consumed %d CUs\n", *sim.UnitsConsumed)
@@ -103,7 +122,7 @@ data, if any, is exposed on `SimulateResult`:
 ```go
 sim, _ := c.SimulateTransaction(ctx, tx)
 if sim.ReturnData != nil {
-    raw, _ := sim.ReturnData.Data.Bytes()
+    raw := sim.ReturnData.Data.Bytes
     fmt.Printf("%s returned %x\n", sim.ReturnData.ProgramID, raw)
 }
 ```
@@ -120,8 +139,7 @@ sim, err := c.SimulateTransaction(ctx, tx)
 if err != nil {
     return err // transport error
 }
-if sim.Err != nil {
-    decoded := rpc.DecodeTransactionError(sim.Err)
+if decoded := rpc.DecodeTransactionError(sim.Err); decoded != nil {
     var ie *rpc.InstructionError
     if errors.As(decoded, &ie) {
         fmt.Printf("instruction %d: %s\n", ie.Index, ie.Kind)

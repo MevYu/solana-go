@@ -112,6 +112,14 @@ type SendTxCfg struct {
 	Encoding            solana.Encoding        `json:"encoding,omitempty"`
 }
 
+// SimulateAccountsCfg selects post-simulation account snapshots. Addresses
+// are returned in the same order. Encoding defaults to base64 when omitted;
+// supported values are base64 and base64+zstd.
+type SimulateAccountsCfg struct {
+	Encoding  solana.Encoding    `json:"encoding,omitempty"`
+	Addresses []solana.PublicKey `json:"addresses"`
+}
+
 // SimulateTxCfg is the config object for SimulateTransaction.
 type SimulateTxCfg struct {
 	Commitment             solana.CommitmentLevel `json:"commitment,omitempty"`
@@ -119,6 +127,8 @@ type SimulateTxCfg struct {
 	ReplaceRecentBlockhash *bool                  `json:"replaceRecentBlockhash,omitempty"`
 	MinContextSlot         *uint64                `json:"minContextSlot,omitempty"`
 	Encoding               solana.Encoding        `json:"encoding,omitempty"`
+	InnerInstructions      *bool                  `json:"innerInstructions,omitempty"`
+	Accounts               *SimulateAccountsCfg   `json:"accounts,omitempty"`
 }
 
 // LargestAccountsCfg is the config object for GetLargestAccounts.

@@ -33,8 +33,8 @@ The wiki tracks the current `main` branch.
   Compute Budget, Memo, Stake, Vote, Secp256k1.
 - **High-level helpers** — `*rpc.Client.SendAndConfirmTransaction`
   with automatic blockhash refresh, `helpers.PriorityFeeStatsFromFees`
-  percentile statistics,
-  `SimulateTransactionDecoded` with typed `InstructionError`.
+  percentile statistics, and `rpc.DecodeTransactionError` with typed
+  `InstructionError`.
 
 ## Where to start
 

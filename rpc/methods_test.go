@@ -505,6 +505,9 @@ func TestSimulateResult_UnmarshalReturnData(t *testing.T) {
 	if err := json.Unmarshal(body, &res); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
+	if res.Err != nil {
+		t.Fatalf("Err = %v, want nil", res.Err)
+	}
 	if res.ReturnData == nil {
 		t.Fatal("ReturnData == nil")
 	}

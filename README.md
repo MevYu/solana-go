@@ -8,7 +8,7 @@ A high-performance Go SDK for the Solana blockchain.
 go get github.com/MevYu/solana-go
 ```
 
-**Minimum Go version**: 1.24.
+**Minimum Go version**: 1.25.
 
 ---
 
@@ -152,12 +152,11 @@ sim, err := c.SimulateTransaction(ctx, tx)
 if err != nil {
     log.Fatal(err) // transport error
 }
-if sim.Err != nil {
-    decoded := rpc.DecodeTransactionError(sim.Err)
-    var ie *rpc.InstructionError
-    if errors.As(decoded, &ie) {
-        fmt.Printf("instruction %d failed: %s\n", ie.Index, ie.Kind)
-    }
+if decoded := rpc.DecodeTransactionError(sim.Err); decoded != nil {
+	var ie *rpc.InstructionError
+	if errors.As(decoded, &ie) {
+		fmt.Printf("instruction %d failed: %s\n", ie.Index, ie.Kind)
+	}
 }
 if sim.UnitsConsumed != nil {
     fmt.Println("units consumed:", *sim.UnitsConsumed)
