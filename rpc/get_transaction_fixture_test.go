@@ -244,7 +244,7 @@ func TestGetTransaction_Fixture_FullDecode(t *testing.T) {
 	if post.UiTokenAmount.UiAmountString != "1.5" {
 		t.Errorf("post.UiTokenAmount.UiAmountString = %q", post.UiTokenAmount.UiAmountString)
 	}
-	if post.UiTokenAmount.UiAmount == nil || *post.UiTokenAmount.UiAmount != 1.5 {
+	if post.UiTokenAmount.UiAmount != 1.5 {
 		t.Errorf("post.UiTokenAmount.UiAmount = %v, want 1.5", post.UiTokenAmount.UiAmount)
 	}
 
