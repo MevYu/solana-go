@@ -196,10 +196,9 @@ func TestMessage_EmptyInput(t *testing.T) {
 }
 
 func TestMessage_UnsupportedVersion(t *testing.T) {
-	// Fabricate a message whose first byte is versionPrefixMask | 1,
-	// i.e. a v1 message which we don't support yet.
+	// Fabricate a message with a future unsupported version.
 	data := []byte{
-		versionPrefixMask | 1, // version 1
+		versionPrefixMask | 2, // version 2
 		0, 0, 0,               // header
 		0, // account keys count
 	}

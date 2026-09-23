@@ -33,6 +33,9 @@ const (
 	// introduces Address Lookup Table support. On the wire, a v0
 	// message begins with the byte versionPrefixMask | 0 == 0x80.
 	MessageVersion0 MessageVersion = 0
+
+	// MessageVersion1 stores its signatures after the message body.
+	MessageVersion1 MessageVersion = 1
 )
 
 // UnmarshalJSON decodes the JSON-RPC representation of a transaction
@@ -82,7 +85,7 @@ const versionPrefixMask byte = 0x80
 
 // maxMessageVersion is the highest versioned message format this
 // package understands. Bump when the next version ships upstream.
-const maxMessageVersion MessageVersion = 0
+const maxMessageVersion MessageVersion = 1
 
 // MessageHeader describes the signing and writability layout of a
 // Message's static account keys.
@@ -156,11 +159,9 @@ func (u8s Uint8Slice) MarshalJSON() ([]byte, error) {
 }
 
 // Message is the serialized body of a Solana transaction. It supports
-// both the legacy format (Version == MessageVersionLegacy) and the
-// versioned format (Version == MessageVersion0).
+// legacy, v0, and v1 formats.
 type Message struct {
-	// Version is the wire-format version. Only MessageVersionLegacy
-	// and MessageVersion0 are currently supported.
+	// Version is the wire-format version.
 	Version MessageVersion
 
 	// Header counts the signing and read-only static accounts.
@@ -180,6 +181,9 @@ type Message struct {
 	// AddressTableLookups is empty for legacy messages and may be
 	// non-empty for v0 messages.
 	AddressTableLookups []MessageAddressTableLookup
+
+	// TransactionConfig contains the inline resource limits of a v1 message.
+	TransactionConfig *TransactionConfig `json:"transactionConfig,omitempty"`
 }
 
 // MarshalBinary is an alias for Marshal, matching the go-solana
@@ -205,6 +209,9 @@ func svSize(n int) int {
 // message without allocating the encoded buffer. The result equals
 // len(m.Marshal()) for any valid message.
 func (m *Message) SerializedSize() int {
+	if m.Version == MessageVersion1 {
+		return m.serializedSizeV1()
+	}
 	sz := 3 // header bytes
 	if m.Version != MessageVersionLegacy {
 		sz++ // version prefix byte
@@ -244,6 +251,9 @@ func (m *Message) Marshal() ([]byte, error) {
 // marshalInto writes the wire-format message body into e. The caller is
 // responsible for validating the message before calling this method.
 func (m *Message) marshalInto(e *encoding.Encoder) error {
+	if m.Version == MessageVersion1 {
+		return m.marshalV1Into(e)
+	}
 	// 1. Version prefix (absent for legacy).
 	if m.Version != MessageVersionLegacy {
 		e.WriteUint8(versionPrefixMask | byte(m.Version))
@@ -390,6 +400,10 @@ func (m *Message) validate() error {
 		}
 	case MessageVersion0:
 		// supported
+	case MessageVersion1:
+		if len(m.AddressTableLookups) > 0 {
+			return fmt.Errorf("solana: message: v1 messages cannot carry address table lookups")
+		}
 	default:
 		return fmt.Errorf("solana: message: unsupported version %d", m.Version)
 	}
@@ -447,13 +461,15 @@ func (m *Message) UnmarshalBinary(data []byte) error {
 // The returned Message does not alias d's buffer: all variable-length
 // fields are copied out before returning.
 func DecodeMessage(d *encoding.Decoder) (*Message, error) {
-	m := &Message{}
-
 	// 1. Version prefix.
 	first, err := d.PeekUint8()
 	if err != nil {
 		return nil, fmt.Errorf("solana: message: version byte: %w", err)
 	}
+	if first == versionPrefixMask|byte(MessageVersion1) {
+		return decodeMessageV1(d)
+	}
+	m := &Message{}
 	if first&versionPrefixMask != 0 {
 		b, _ := d.ReadUint8()
 		v := MessageVersion(b &^ versionPrefixMask)

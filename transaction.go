@@ -13,9 +13,9 @@ import (
 )
 
 // Transaction is a Solana transaction: a message together with one
-// signature per required signer. The wire encoding is a shortvec
-// length prefix, then each signature as 64 raw bytes, then the
-// serialized message body.
+// signature per required signer. Legacy and v0 wire encodings put a
+// shortvec signature count and the signatures before the message. V1
+// puts the signatures after the message without a count prefix.
 //
 // A freshly constructed Transaction has zero-filled signature slots
 // for each required signer. Calling Sign fills in the slots for the
@@ -49,6 +49,9 @@ func NewTransaction(message Message) *Transaction {
 // len(tx.Marshal()) for any valid transaction.
 func (tx *Transaction) SerializedSize() int {
 	n := len(tx.Signatures)
+	if tx.Message.Version == MessageVersion1 {
+		return tx.Message.SerializedSize() + n*SignatureSize
+	}
 	// shortvec for n: 1 byte when n < 128 (always true for ≤35 signers)
 	svLen := 1
 	if n >= 128 {
@@ -156,6 +159,15 @@ func (tx *Transaction) Marshal() ([]byte, error) {
 		return nil, fmt.Errorf("solana: transaction: %d signatures for %d required signers", got, want)
 	}
 	e := encoding.NewEncoder(tx.SerializedSize())
+	if tx.Message.Version == MessageVersion1 {
+		if err := tx.Message.marshalInto(e); err != nil {
+			return nil, err
+		}
+		for i := range tx.Signatures {
+			e.WriteBytes(tx.Signatures[i][:])
+		}
+		return e.Bytes(), nil
+	}
 	e.WriteShortvec(uint16(len(tx.Signatures)))
 	for i := range tx.Signatures {
 		e.WriteBytes(tx.Signatures[i][:])
@@ -225,6 +237,25 @@ func (tx *Transaction) UnmarshalBinary(data []byte) error {
 //
 // The returned Transaction does not alias d's buffer.
 func DecodeTransaction(d *encoding.Decoder) (*Transaction, error) {
+	first, err := d.PeekUint8()
+	if err != nil {
+		return nil, fmt.Errorf("solana: transaction: version byte: %w", err)
+	}
+	if first == versionPrefixMask|byte(MessageVersion1) {
+		msg, err := DecodeMessage(d)
+		if err != nil {
+			return nil, fmt.Errorf("solana: transaction: message: %w", err)
+		}
+		sigs := make([]Signature, msg.Header.NumRequiredSignatures)
+		for i := range sigs {
+			b, err := d.ReadBytes(SignatureSize)
+			if err != nil {
+				return nil, fmt.Errorf("solana: transaction: signature %d: %w", i, err)
+			}
+			copy(sigs[i][:], b)
+		}
+		return &Transaction{Signatures: sigs, Message: *msg}, nil
+	}
 	sigCount, err := d.ReadShortvec()
 	if err != nil {
 		return nil, fmt.Errorf("solana: transaction: signatures count: %w", err)
